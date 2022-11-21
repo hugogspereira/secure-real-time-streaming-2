@@ -1,0 +1,15 @@
+<236.16.20.30:9999>
+ciphersuite: AES/OFB/NoPadding
+key: b356198719e456a6
+iv: 1076ab542789b5f6
+integrity: SHA1
+Mackey: NULL
+</236.16.20.30:9999>
+
+<193.134.156.23:8945>
+ciphersuite: RC6/GCM/NoPadding
+key: 476e67a34e557189
+iv: 8a451982e562c487
+Integrity: NULL
+mackey: NULL
+</193.134.156.23:8945>
