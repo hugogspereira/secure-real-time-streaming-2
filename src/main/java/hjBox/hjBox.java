@@ -49,7 +49,8 @@ import crypto.PBEFileDecryption;
 public class hjBox {
 
     public static void main(String[] args) throws Exception {
-        InputStream inputStream = new ByteArrayInputStream(PBEFileDecryption.decryptFiles(args[2], args[0]).toByteArray());
+
+        InputStream inputStream = new ByteArrayInputStream(PBEFileDecryption.decryptFiles(args[2], args[0]).toByteArray()); // <password>  <config>
         if (inputStream == null) {
             System.out.println("Erro, usar: myBox <config> <box-config> <password>");
             System.err.println("Configuration file not found!");
@@ -64,7 +65,7 @@ public class hjBox {
         Set<SocketAddress> outSocketAddressSet = Arrays.stream(destinations.split(",")).map(s -> parseSocketAddress(s)).collect(Collectors.toSet());
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
-        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocketAddress, args[1], args[2]);
+        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocketAddress, args[1]);  // <box-config>
         byte[] buffer = new byte[5 * 1024];
 
         DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = -1; String movieName = "";

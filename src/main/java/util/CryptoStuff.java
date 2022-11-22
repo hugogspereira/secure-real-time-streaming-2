@@ -54,10 +54,13 @@ public class CryptoStuff {
             }
             SecretKey secretKey = new SecretKeySpec(key.getBytes(), 0, key.getBytes().length,
                     ciphersuite.split("/")[0]);
-            if(cipher.getAlgorithm().equals("ARCFOUR"))
+
+            if (cipher.getAlgorithm().equals("ARCFOUR")) {
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-            else
+            }
+            else {
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+            }
 
             if (mode != null && mode.equalsIgnoreCase("GCM")
                     || transformation[0].equalsIgnoreCase("ChaCha20-Poly1305")) {
@@ -147,10 +150,12 @@ public class CryptoStuff {
             }
             SecretKey secretKey = new SecretKeySpec(key.getBytes(), 0, key.getBytes().length,
                     ciphersuite.split("/")[0]);
-            if(cipher.getAlgorithm().equals("ARCFOUR"))
+            if(cipher.getAlgorithm().equals("ARCFOUR")) {
                 cipher.init(Cipher.DECRYPT_MODE, secretKey);
-            else
+            }
+            else {
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
+            }
                 
             if (mode != null && mode.equalsIgnoreCase("GCM")
                     || transformation[0].equalsIgnoreCase("ChaCha20-Poly1305")) {

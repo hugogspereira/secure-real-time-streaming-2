@@ -1,8 +1,5 @@
 package socket;
 
-import javax.crypto.*;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import util.ConfigReader;
 import util.CryptoStuff;
 import util.IntegrityFailedException;
@@ -28,13 +25,13 @@ public class SafeDatagramSocket {
     Properties properties;
     private DatagramSocket datagramSocket;
 
-    public SafeDatagramSocket(SocketAddress addr, String config, String password) throws IOException {
+    public SafeDatagramSocket(SocketAddress addr, String config) throws IOException {
         this.datagramSocket = new DatagramSocket();
         
-        readProperties(addr, config, password);
+        readProperties(addr, config);
     }
 
-    public SafeDatagramSocket(InetSocketAddress addr, String boxConfig, String password) throws IOException {
+    public SafeDatagramSocket(InetSocketAddress addr, String boxConfig) throws IOException {
         if(addr.getAddress().isMulticastAddress()){
             MulticastSocket datagramSocket = new MulticastSocket(addr.getPort());
             datagramSocket.joinGroup(addr, null); 
@@ -43,16 +40,19 @@ public class SafeDatagramSocket {
         else 
             this.datagramSocket = new DatagramSocket();
 
-        readProperties(addr, boxConfig, password);
+        readProperties(addr, boxConfig);
     }
 
-    private void readProperties(SocketAddress addr, String boxConfig, String password)
+    private void readProperties(SocketAddress addr, String boxConfig)
             throws IOException {
-        Security.addProvider(new BouncyCastleProvider());
+        Provider provider = Security.getProvider("BC");
+        if (provider == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
 
         try {
             InputStream inputStream = new ByteArrayInputStream(
-                    ConfigReader.read(boxConfig, addr.toString().split("/")[1], password).toByteArray());
+                    ConfigReader.read(boxConfig, addr.toString().split("/")[1]).toByteArray());
             if (inputStream == null) {
                 System.err.println("Configuration Box file not found!");
                 System.exit(1);

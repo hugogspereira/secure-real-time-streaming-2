@@ -42,7 +42,7 @@ public class EncryptMovie {
 			String movieName = path[path.length - 1];
 
 			InputStream inputStream = new ByteArrayInputStream(
-					ConfigReader.read(moviesConfig, movieName, password).toByteArray());
+					ConfigReader.readMovie(moviesConfig, movieName, password).toByteArray());
 			if (inputStream == null) {
 				System.err.println("Configuration Movie file not found!");
 				System.exit(1);

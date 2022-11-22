@@ -32,8 +32,7 @@ public class DecryptMovie {
 			String[] path = movieName.split("/");
 			String movieNameAux = path[path.length - 1];
 
-			InputStream inStream = new ByteArrayInputStream(
-					ConfigReader.read(moviesConfig, movieNameAux, password).toByteArray());
+			InputStream inStream = new ByteArrayInputStream(ConfigReader.readMovie(moviesConfig, movieNameAux, password).toByteArray());
 			if (inStream == null) {
 				System.err.println("Configuration Movie file not found!");
 				System.exit(1);

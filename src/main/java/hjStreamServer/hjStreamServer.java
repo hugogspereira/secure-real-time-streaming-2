@@ -22,13 +22,11 @@ public class hjStreamServer {
 
 		int size, count = -1;
 		long time;
-		DataInputStream g = (new DecryptMovie(args[0], args[1], args[5]).getDataInputStream());
-
 		byte[] buff = new byte[4 * 1024];
 
-		SocketAddress addr = new InetSocketAddress( args[2], Integer.parseInt(args[3]));
-
-		SafeDatagramSocket s = new SafeDatagramSocket(addr, args[4], args[5]);
+		DataInputStream g = (new DecryptMovie(args[0], args[1], args[5]).getDataInputStream()); // <movie> <movies-config> <password>
+		SocketAddress addr = new InetSocketAddress(args[2], Integer.parseInt(args[3])); 		// <ip-multicast-address> <port>
+		SafeDatagramSocket s = new SafeDatagramSocket(addr, args[4]); 					// <box-config>
 
 		DatagramPacket p = new DatagramPacket(buff, buff.length, addr);
 		long t0 = System.nanoTime(), q0 = 0, afs = 0;

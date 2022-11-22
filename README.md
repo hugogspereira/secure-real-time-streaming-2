@@ -1,12 +1,18 @@
 
-# SRSC 2022/2023 - Project 1
+# SRSC 2022/2023 - Project 2
 
 This repo will be used to store the first project of Network and Computer Systems Security Course of 2022/2023.
 
-- [Assignment Information](http://vps726303.ovh.net/srsc/)
+- [Assignment Information](http://vps726303.ovh.net/srsc/wa/TP2/TP2-Requirements/ProjectAssignment2-ExtendedDescription%20.pdf)
 
 
-In this project, we propose to design and implement a secure UDP channel to support real-time streaming based on a protocal usign cryptographic protection, supporting encrypted and integrity-controlled payloads of protected media frames encoding MPEG4 encoded movies.
+The goal of the project assignment 2 (PA#2) is the design, implementation, and experimental
+demonstration and evaluation of a dynamic protocol for establishment of security
+associations (SA) (including ciphersuites, session keys and all required parameters), as an
+enhanced solution for the previous secure real-time streaming protocol supported by UDP, as
+initially designed and implemented in the Project Assignment 1 (PA#1). The goal is to avoid
+the need of statically defined configuration files, as pre-shared and security associations, as
+used in the initial PA#1 specification.
 
 ## Base Components
 
