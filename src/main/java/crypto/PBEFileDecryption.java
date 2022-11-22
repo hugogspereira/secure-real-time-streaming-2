@@ -1,5 +1,6 @@
 package crypto;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import javax.crypto.Cipher;
@@ -10,7 +11,7 @@ import javax.crypto.spec.PBEParameterSpec;
 
 public class PBEFileDecryption {
 
-	public static ByteArrayOutputStream decryptFiles(String password, String filename) throws Exception {
+	public static ByteArrayInputStream decryptFiles(String password, String filename) throws Exception {
 		PBEKeySpec pbeKeySpec = new PBEKeySpec(password.toCharArray());
 		SecretKeyFactory secretKeyFactory = SecretKeyFactory
 				.getInstance("PBEWithMD5AndTripleDES");
@@ -40,6 +41,6 @@ public class PBEFileDecryption {
 		fis.close();
 		fos.flush();
 		fos.close();
-		return fos;
+		return new ByteArrayInputStream(fos.toByteArray());
 	}
 }

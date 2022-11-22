@@ -50,7 +50,7 @@ public class hjBox {
 
     public static void main(String[] args) throws Exception {
 
-        InputStream inputStream = new ByteArrayInputStream(PBEFileDecryption.decryptFiles(args[2], args[0]).toByteArray()); // <password>  <config>
+        InputStream inputStream = PBEFileDecryption.decryptFiles(args[2], args[0]); // <password>  <config>
         if (inputStream == null) {
             System.out.println("Erro, usar: myBox <config> <box-config> <password>");
             System.err.println("Configuration file not found!");
