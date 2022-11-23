@@ -15,6 +15,14 @@ public class hjStreamServer {
 
 	static public void main( String []args ) throws Exception {
 		if (args.length != 6) {
+				/*
+					src/main/java/hjStreamServer/movies/cars.dat.encrypted
+					src/main/java/hjStreamServer/movies-cryptoconfig.txt.encrypted
+					236.16.20.30
+					9999
+					src/main/java/hjStreamServer/stream-cryptoconfig.txt
+					omsqptaesdfommptvsnfiocmlesrfoqppms
+				 */
 				System.out.println("Erro, usar: mySend <movie> <movies-config> <ip-multicast-address> <port> <box-config> <password>");
 	           	System.out.println("        or: mySend <movie> <movies-config> <ip-unicast-address> <port> <box-config> <password>");
 	           	System.exit(-1);

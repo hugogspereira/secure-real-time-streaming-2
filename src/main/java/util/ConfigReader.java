@@ -53,7 +53,7 @@ public class ConfigReader {
 
     public static ByteArrayOutputStream readMovie(String path, String target, String password) throws Exception {
         try {
-            InputStream stream = new ByteArrayInputStream(PBEFileDecryption.decryptFiles(password, path).toByteArray());
+            InputStream stream = PBEFileDecryption.decryptFiles(password, path);
             Scanner scan = new Scanner(stream);
             List<String> lines = new LinkedList<>();
             while(scan.hasNextLine()){

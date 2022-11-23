@@ -71,3 +71,9 @@ To run this program it is not necessary to have the configuration files in clear
 However, it was decided to put them in the repo so that the Professor could test things out.
 
 Also, the password used to encrypt and decrypt the files was: "omsqptaesdfommptvsnfiocmlesrfoqppms".
+
+The password used for the boxkeystore was:     "omsqptaesd12345fommptvsnf54321iocmlesrfoqppms12345".
+
+The password used for the streamkeystore was:  "12345omsqptaesd54321fommptvsnf12345iocmlesrfoqppms".
+
+The password used for the trustedstore was:    "cIBXzKN5WU5aVMqYKuWGncATG35M3Yok6wJvZ0tdlnzBp0R1Gv".

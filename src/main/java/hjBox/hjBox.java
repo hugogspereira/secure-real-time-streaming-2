@@ -33,7 +33,6 @@ package hjBox;
  *       Both configurable in the file config.properties
  */
 
-import java.io.ByteArrayInputStream;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -41,20 +40,25 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.io.InputStream;
-
 import socket.DatagramSocketCreator;
 import socket.SafeDatagramSocket;
 import crypto.PBEFileDecryption;
+import util.RTSSHandshake;
 
 public class hjBox {
 
     public static void main(String[] args) throws Exception {
 
         InputStream inputStream = PBEFileDecryption.decryptFiles(args[2], args[0]); // <password>  <config>
-        if (inputStream == null) {
+        if (args.length != 3) {
+            /*
+                src/main/java/hjBox/config.properties.encrypted
+                src/main/java/hjBox/box-cryptoconfig.txt
+                omsqptaesdfommptvsnfiocmlesrfoqppms
+		    */
             System.out.println("Erro, usar: myBox <config> <box-config> <password>");
             System.err.println("Configuration file not found!");
-            System.exit(1);
+            System.exit(-1);
         }
         Properties properties = new Properties();
         properties.load(inputStream);
@@ -65,6 +69,7 @@ public class hjBox {
         Set<SocketAddress> outSocketAddressSet = Arrays.stream(destinations.split(",")).map(s -> parseSocketAddress(s)).collect(Collectors.toSet());
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
+        RTSSHandshake.getInstance().handshakeBox(inSocket, args[1]);
         SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocketAddress, args[1]);  // <box-config>
         byte[] buffer = new byte[5 * 1024];
 
