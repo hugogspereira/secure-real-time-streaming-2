@@ -51,6 +51,34 @@ public class ConfigReader {
         }
     }
 
+    /*
+     * This method can be used to reads the ciphersuites from the new config files and will return the list of ciphersuites found
+     */
+    public static List<String> readCiphersuites(String path, String target) throws Exception {
+        try {
+            Scanner scan = new Scanner(new FileInputStream(path));
+            List<String> lines = new LinkedList<>();
+            while(scan.hasNextLine()){
+                lines.add(scan.nextLine());
+            }
+            scan.close();
+
+            String aux = new StringBuilder(target).insert(0, "<").append(">").toString();
+            int firstIndex, lastIndex;
+            firstIndex = lines.indexOf(aux);
+            lastIndex = lines.lastIndexOf(aux);
+
+            if(firstIndex == -1 || lastIndex == firstIndex) {
+                throw new Exception("target not found");
+            }
+            return lines.subList(firstIndex+1, lastIndex);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            throw new Exception("Problems related with config file occurred!\n"+e.getMessage());
+        }
+    }
+
     public static ByteArrayOutputStream readMovie(String path, String target, String password) throws Exception {
         try {
             InputStream stream = PBEFileDecryption.decryptFiles(password, path);

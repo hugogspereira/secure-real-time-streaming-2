@@ -1,15 +1,14 @@
 package socket;
 
-import util.ConfigReader;
-import util.CryptoStuff;
-import util.IntegrityFailedException;
-
+import util.*;
 import java.io.*;
 import java.net.*;
 import java.security.*;
+import java.util.List;
 import java.util.Properties;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import util.PrintStats;
+import javax.crypto.spec.DHParameterSpec;
+import static util.Utils.PATH_TO_KEYSTORE;
 
 public class SafeDatagramSocket {
 
@@ -24,21 +23,29 @@ public class SafeDatagramSocket {
     private String addr;
     Properties properties;
     private DatagramSocket datagramSocket;
+    private String keystoreName;
+    private String password;
 
-    public SafeDatagramSocket(SocketAddress addr, String config) throws IOException {
+    public SafeDatagramSocket(String keyStore, String password, SocketAddress addr, String config) throws IOException {
         this.datagramSocket = new DatagramSocket();
+        this.keystoreName = keyStore;
+        this.password = password;
         
         readProperties(addr, config);
     }
 
-    public SafeDatagramSocket(InetSocketAddress addr, String boxConfig) throws IOException {
+    public SafeDatagramSocket(String keyStore, String password, InetSocketAddress addr, String boxConfig) throws IOException {
         if(addr.getAddress().isMulticastAddress()){
             MulticastSocket datagramSocket = new MulticastSocket(addr.getPort());
             datagramSocket.joinGroup(addr, null); 
             this.datagramSocket = datagramSocket;
         }
-        else 
+        else {
             this.datagramSocket = new DatagramSocket();
+        }
+
+        this.keystoreName = keyStore;
+        this.password = password;
 
         readProperties(addr, boxConfig);
     }
@@ -131,4 +138,81 @@ public class SafeDatagramSocket {
         PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
     }
 
+
+    /*
+     *************************************************************************************
+     *************************************************************************************
+     *                                     PHASE 2                                       *
+     *************************************************************************************
+     *************************************************************************************
+     */
+
+
+
+    private void sendFirstMessageHS() throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+        List<String> ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_KEYSTORE+keystoreName, addr.toString().split("/")[1]);
+        int ciphersuitesLength = ciphersuites.toArray().length;
+        oos.write(ciphersuitesLength); // Será que isto funciona ? Devia ser assim ?
+        oos.writeObject(ciphersuites);
+
+        /*
+        // TODO - será isto ???????
+        Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE+keystoreName, password, "aliasEntry");
+        int certificateLength = certificate.getEncoded().length;
+        oos.write(certificateLength); //
+        oos.writeObject(certificate); //
+        */
+
+        // TODO - Para já estou só a apensar em DH, depois tentamos generalizar, o q achas?
+        DHParameterSpec dhParams = Utils.generateDHParameters();
+        KeyPair pair = Utils.generateDHKeys(dhParams);
+
+        int dhParamsLen = pair.getPublic().getEncoded().length;
+        oos.write(dhParamsLen); //
+        oos.writeObject(pair.getPublic());
+        dhParamsLen = dhParams.getP().toByteArray().length;
+        oos.write(dhParamsLen); //
+        oos.writeObject(dhParams.getP());
+        dhParamsLen = dhParams.getG().toByteArray().length;
+        oos.write(dhParamsLen); //
+        oos.writeObject(dhParams.getG());
+
+        // TODO
+        // ...
+        // Signature and hash
+        // ...
+    }
+
+    private void receiveSecondMessageHS(DatagramSocket inSocket) throws Exception {
+        DatagramPacket inPacket;
+        byte[] buffer = new byte[5*1024]; // SIZE ???
+
+        inPacket = new DatagramPacket(buffer, buffer.length);
+        inSocket.receive(inPacket);
+        DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
+
+        int movieNameLength = inputStream.readInt();
+        String movieName =  new String(inputStream.readNBytes(movieNameLength));
+
+        int ciphersuitelength = inputStream.readInt();
+        String ciphersuite = new String(inputStream.readNBytes(ciphersuitelength));
+
+        int certLength = inputStream.readInt();
+        // Certificado ? - como deserialize
+        // ...
+
+    }
+
+    public void createBoxHandshake(DatagramSocket inSocket) throws Exception {
+        sendFirstMessageHS();
+        receiveSecondMessageHS(inSocket);
+
+    }
+
+    public void createServerHandshake(DatagramSocket inSocket) throws SocketException {
+        // ...
+    }
 }

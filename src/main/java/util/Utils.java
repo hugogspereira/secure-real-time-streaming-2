@@ -1,51 +1,55 @@
 
 package util;
 
-/**
- * Material/Labs para SRSC 20/21, Sem-1
- * hj
- **/
+import javax.crypto.spec.DHParameterSpec;
+import java.io.FileInputStream;
+import java.security.*;
+import java.security.cert.Certificate;
+import java.security.spec.InvalidParameterSpecException;
 
-/**
- * Auxiliar
- * Some conversion functions
- */
-public class Utils
-{
+public class Utils {
 	private static String	digits = "0123456789abcdef";
+	public static final String PATH_TO_KEYSTORE = "src/main/java/keystore/";
 
-	/**
-	 * Return string hexadecimal from byte array of certain size
-	 *
-	 * @param data : bytes to convert
-	 * @param length : nr of bytes in data block to be converted
-	 * @return  hex : hexadecimal representation of data
-	 */
-
-	public static String toHex(byte[] data, int length)
-	{
+	public static String toHex(byte[] data, int length) {
 		StringBuffer buf = new StringBuffer();
-
-		for (int i = 0; i != length; i++)
-		{
+		for (int i = 0; i != length; i++) {
 			int	v = data[i] & 0xff;
 
 			buf.append(digits.charAt(v >> 4));
 			buf.append(digits.charAt(v & 0xf));
 		}
-
 		return buf.toString();
 	}
 
-	/**
-	 * Return data in byte array from string hexadecimal
-	 *
-	 * @param data : bytes to be converted
-	 * @return : hexadecimal repersentatin of data
-	 */
-	public static String toHex(byte[] data)
-	{
+	public static String toHex(byte[] data) {
 		return toHex(data, data.length);
+	}
+
+	public static DHParameterSpec generateDHParameters() throws NoSuchAlgorithmException, NoSuchProviderException, InvalidParameterSpecException {
+		AlgorithmParameterGenerator paramsGenerator = AlgorithmParameterGenerator.getInstance("DH", "BC");
+		paramsGenerator.init(2048);
+		AlgorithmParameters params = paramsGenerator.generateParameters();
+		return (DHParameterSpec) params.getParameterSpec(DHParameterSpec.class);
+	}
+
+	public static KeyPair generateDHKeys(DHParameterSpec specs) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
+		KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DH", "BC");
+		keyGen.initialize(specs);
+		return keyGen.generateKeyPair();
+	}
+
+	public static Certificate retrieveCertificateFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception {
+		FileInputStream is = new FileInputStream(PATH_TO_KEYSTORE+keystoreName);
+
+		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+		keystore.load(is, password.toCharArray());
+
+		Key key = keystore.getKey(aliasEntry, password.toCharArray());
+		if (key instanceof PrivateKey) {
+			return keystore.getCertificate(aliasEntry);
+		}
+		throw new Exception("unable to retrieve certificate from keystore!");
 	}
 }
 
