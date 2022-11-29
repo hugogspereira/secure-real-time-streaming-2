@@ -4,10 +4,13 @@ import util.*;
 import java.io.*;
 import java.net.*;
 import java.security.*;
-import java.util.List;
+import java.security.cert.Certificate;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Properties;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import javax.crypto.spec.DHParameterSpec;
+
+import static util.Utils.PATH_TO_BOX_CONFIG;
 import static util.Utils.PATH_TO_KEYSTORE;
 
 public class SafeDatagramSocket {
@@ -153,9 +156,10 @@ public class SafeDatagramSocket {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
 
-        List<String> ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_KEYSTORE+keystoreName, addr.toString().split("/")[1]);
-        int ciphersuitesLength = ciphersuites.toArray().length;
-        oos.write(ciphersuitesLength); // Será que isto funciona ? Devia ser assim ?
+        String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, addr.toString().split("/")[1]);
+        int ciphersuitesLength = ciphersuites.length;
+
+        oos.write(ciphersuitesLength);
         oos.writeObject(ciphersuites);
 
         /*
@@ -164,26 +168,32 @@ public class SafeDatagramSocket {
         int certificateLength = certificate.getEncoded().length;
         oos.write(certificateLength); //
         oos.writeObject(certificate); //
-        */
+        /* */
 
         // TODO - Para já estou só a apensar em DH, depois tentamos generalizar, o q achas?
         DHParameterSpec dhParams = Utils.generateDHParameters();
         KeyPair pair = Utils.generateDHKeys(dhParams);
 
-        int dhParamsLen = pair.getPublic().getEncoded().length;
+        int dhParamsLen = ((KeyPair) pair).getPublic().getEncoded().length;
         oos.write(dhParamsLen); //
         oos.writeObject(pair.getPublic());
+
         dhParamsLen = dhParams.getP().toByteArray().length;
         oos.write(dhParamsLen); //
         oos.writeObject(dhParams.getP());
+
         dhParamsLen = dhParams.getG().toByteArray().length;
         oos.write(dhParamsLen); //
         oos.writeObject(dhParams.getG());
 
         // TODO
+        // Signature
+        PrivateKey boxPublicKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+keystoreName, password, "aliasEntry");
         // ...
-        // Signature and hash
-        // ...
+
+        // hash
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        //...
     }
 
     private void receiveSecondMessageHS(DatagramSocket inSocket) throws Exception {
@@ -194,9 +204,6 @@ public class SafeDatagramSocket {
         inSocket.receive(inPacket);
         DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
 
-        int movieNameLength = inputStream.readInt();
-        String movieName =  new String(inputStream.readNBytes(movieNameLength));
-
         int ciphersuitelength = inputStream.readInt();
         String ciphersuite = new String(inputStream.readNBytes(ciphersuitelength));
 
@@ -204,15 +211,44 @@ public class SafeDatagramSocket {
         // Certificado ? - como deserialize
         // ...
 
+        int yServerLength = inputStream.readInt();
+        // TODO
+        X509EncodedKeySpec serverPubKeySpec = new X509EncodedKeySpec(inputStream.readNBytes(yServerLength));
+        KeyFactory keyFactory = KeyFactory.getInstance("DH", "BC");
+        PublicKey serverPubKey = keyFactory.generatePublic(serverPubKeySpec);
+
+        int signatureLength = inputStream.readInt();
+        //...
+
+        int hashLength = inputStream.readInt();
+        // ...
+
+    }
+
+    private void sendThirdMessageHS() {
+        /*int movieNameLength = inputStream.readInt();
+        String movieName =  new String(inputStream.readNBytes(movieNameLength));*/
     }
 
     public void createBoxHandshake(DatagramSocket inSocket) throws Exception {
         sendFirstMessageHS();
         receiveSecondMessageHS(inSocket);
-
+        sendThirdMessageHS();
     }
 
     public void createServerHandshake(DatagramSocket inSocket) throws SocketException {
-        // ...
+        receiveFirstMessageHS(inSocket);
+        sendSecondMessageHS();
+        receiveThirdMessageHS(inSocket);
+    }
+
+    private void receiveFirstMessageHS(DatagramSocket inSocket) {
+
+    }
+
+    private void sendSecondMessageHS() {
+    }
+
+    private void receiveThirdMessageHS(DatagramSocket inSocket) {
     }
 }

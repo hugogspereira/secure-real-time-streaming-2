@@ -10,6 +10,7 @@ import java.security.spec.InvalidParameterSpecException;
 public class Utils {
 	private static String	digits = "0123456789abcdef";
 	public static final String PATH_TO_KEYSTORE = "src/main/java/keystore/";
+	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt";
 
 	public static String toHex(byte[] data, int length) {
 		StringBuffer buf = new StringBuffer();
@@ -48,6 +49,19 @@ public class Utils {
 		Key key = keystore.getKey(aliasEntry, password.toCharArray());
 		if (key instanceof PrivateKey) {
 			return keystore.getCertificate(aliasEntry);
+		}
+		throw new Exception("unable to retrieve certificate from keystore!");
+	}
+
+	public static PrivateKey retrievePrivateKeyFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception { // TODO
+		FileInputStream is = new FileInputStream(PATH_TO_KEYSTORE+keystoreName);
+
+		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+		keystore.load(is, password.toCharArray());
+
+		Key key = keystore.getKey(aliasEntry, password.toCharArray());
+		if (key instanceof PrivateKey) {
+			return (PrivateKey) key;
 		}
 		throw new Exception("unable to retrieve certificate from keystore!");
 	}

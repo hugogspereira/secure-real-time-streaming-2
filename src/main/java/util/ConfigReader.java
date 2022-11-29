@@ -54,7 +54,7 @@ public class ConfigReader {
     /*
      * This method can be used to reads the ciphersuites from the new config files and will return the list of ciphersuites found
      */
-    public static List<String> readCiphersuites(String path, String target) throws Exception {
+    public static String[] readCiphersuites(String path, String target) throws Exception {
         try {
             Scanner scan = new Scanner(new FileInputStream(path));
             List<String> lines = new LinkedList<>();
@@ -71,7 +71,8 @@ public class ConfigReader {
             if(firstIndex == -1 || lastIndex == firstIndex) {
                 throw new Exception("target not found");
             }
-            return lines.subList(firstIndex+1, lastIndex);
+            List<String> list = lines.subList(firstIndex+1, lastIndex);
+            return list.toArray(new String[0]); // TODO
         }
         catch (Exception e) {
             e.printStackTrace();
