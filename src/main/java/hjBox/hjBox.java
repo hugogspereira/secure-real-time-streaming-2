@@ -68,8 +68,7 @@ public class hjBox {
         Set<SocketAddress> outSocketAddressSet = Arrays.stream(destinations.split(",")).map(s -> parseSocketAddress(s)).collect(Collectors.toSet());
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
-        SafeDatagramSocket outSocket = new SafeDatagramSocket(hjBox.class.getSimpleName(), "password", inSocketAddress, args[1]);  // <box-config>
-        outSocket.createBoxHandshake(inSocket);
+        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress, args[1]);  // <box-config>
 
         byte[] buffer = new byte[5 * 1024];
         DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = -1; String movieName = "";

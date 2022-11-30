@@ -49,9 +49,10 @@ public class SafeDatagramSocket {
         this.datagramSocket = new DatagramSocket();
 
         readHandshakeProperties(className,password,addr);
+        createServerHandshake(new DatagramSocket(addr));
     }
 
-    public SafeDatagramSocket(String className, String password, InetSocketAddress addr, String boxConfig) throws IOException {
+    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr, String boxConfig) throws Exception {
         // TODO - Suposto ser multicast ???
         if(addr.getAddress().isMulticastAddress()){
             MulticastSocket datagramSocket = new MulticastSocket(addr.getPort());
@@ -63,6 +64,7 @@ public class SafeDatagramSocket {
         }
 
         readHandshakeProperties(className,password,addr);
+        createBoxHandshake(inSocket);
     }
 
     private void readHandshakeProperties(String className, String password, SocketAddress addr) throws IOException {
@@ -141,7 +143,8 @@ public class SafeDatagramSocket {
         if (boxIntegrity == null)
             boxIntegrity = checkProperty(properties, MACKEY);
         PrintStats.toPrintBoxConfigStats(movieName, checkProperty(properties, CIPHERSUITE), boxKey, boxKey.length(), boxIntegrity);
-        PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime); */
+        PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+        */
     }
 
     public void printServerConfigStatus(String movieName, int count, long afs, double totalTime) {
@@ -151,7 +154,8 @@ public class SafeDatagramSocket {
         if (boxIntegrity == null)
             boxIntegrity = checkProperty(properties, MACKEY);
         PrintStats.toPrintServerConfigStats(movieName, checkProperty(properties, CIPHERSUITE), boxKey, boxKey.length(), boxIntegrity);
-        PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime); */
+        PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+        */
     }
 
 

@@ -35,7 +35,6 @@ public class hjStreamServer {
 		DataInputStream g = (new DecryptMovie(args[0], args[1], args[5]).getDataInputStream()); // <movie> <movies-config> <password>
 		SocketAddress addr = new InetSocketAddress(args[2], Integer.parseInt(args[3])); 		// <ip-multicast-address> <port>
 		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), "password", addr, args[4]);  // <box-config>
-		s.createServerHandshake(new DatagramSocket(addr));
 
 		DatagramPacket p = new DatagramPacket(buff, buff.length, addr);
 		long t0 = System.nanoTime(), q0 = 0, afs = 0;
