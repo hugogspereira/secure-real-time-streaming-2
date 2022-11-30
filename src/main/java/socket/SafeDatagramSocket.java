@@ -98,7 +98,8 @@ public class SafeDatagramSocket {
         byte[] data = p.getData();
 
         int size = data.length;
-        byte[] cipherText = CryptoStuff.encrypt(data, size, properties);
+        // Note that this method can only be called by the server - cipher is init as ENCRYPT
+        byte[] cipherText = CryptoStuff.encrypt(data, size, ciphersuite, hMac);
 
         p.setData(cipherText);
         p.setLength(cipherText.length);
@@ -112,7 +113,8 @@ public class SafeDatagramSocket {
         int size = p.getLength();
         
         try {
-            movieData = CryptoStuff.decrypt(data, size, properties);
+            // Note that this method can only be called by the box - cipher is init as DECRYPT
+            movieData = CryptoStuff.decrypt(data, size, ciphersuite, hMac);
         } catch (IntegrityFailedException e) {
             return null;
         }
@@ -291,21 +293,21 @@ public class SafeDatagramSocket {
         byte[] secretKey = boxKeyAgree.generateSecret();
 
         md = MessageDigest.getInstance("SHA-512");
-        byte[] symetricAndHmacKey = md.digest(secretKey);
+        byte[] symmetricAndHmacKey = md.digest(secretKey);
 
         // Parte vai para a chave simetrica
         String[] cipherMode = ciphersuiteRTSP.split("-");
-        byte[] symetricKey = Arrays.copyOfRange(symetricAndHmacKey,0, Integer.parseInt(cipherMode[1]));
+        byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, Integer.parseInt(cipherMode[1]));
         ciphersuite = Cipher.getInstance(cipherMode[0]);
-        IvParameterSpec ivSpec = new IvParameterSpec(symetricKey);
-        SecretKeySpec secretKeySpec = new SecretKeySpec(symetricKey, cipherMode[0].split("/")[0]);
+        IvParameterSpec ivSpec = new IvParameterSpec(symmetricKey);
+        SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split("/")[0]);
         ciphersuite.init(Cipher.DECRYPT_MODE, secretKeySpec, ivSpec);
         // Parte que vai para a chave HMAC
-        int finalOffset = symetricAndHmacKey.length;
+        int finalOffset = symmetricAndHmacKey.length;
         if(finalOffset-Integer.parseInt(cipherMode[1]) > 256) {
             finalOffset = Integer.parseInt(cipherMode[1])+256;
         }
-        byte[] macKey = Arrays.copyOfRange(symetricAndHmacKey,Integer.parseInt(cipherMode[1]), finalOffset);
+        byte[] macKey = Arrays.copyOfRange(symmetricAndHmacKey,Integer.parseInt(cipherMode[1]), finalOffset);
         hMac = Mac.getInstance("HmacSHA256");
         Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
         hMac.init(hMacKey);

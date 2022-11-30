@@ -93,15 +93,15 @@ public class CryptoStuff {
             else return cipher.doFinal(data, 0, size);
 
         } catch (BadPaddingException e) {
-            throw new IOException("Encript data has failed! Bad padding exception", e);
+            throw new IOException("Encrypt data has failed! Bad padding exception", e);
         } catch (IllegalBlockSizeException e) {
-            throw new IOException("Encript data has failed! Illegal block size exception", e);
+            throw new IOException("Encrypt data has failed! Illegal block size exception", e);
         } catch (NoSuchAlgorithmException e) {
-            throw new IOException("Encript data has failed! No such algorithm", e);
+            throw new IOException("Encrypt data has failed! No such algorithm", e);
         } catch (ShortBufferException e) {
-            throw new IOException("Encript data has failed! Short Buffer Exception", e);
+            throw new IOException("Encrypt data has failed! Short Buffer Exception", e);
         } catch (InvalidKeyException e) {
-            throw new IOException("Encript data has failed! Invalid Mac key Exeption", e);
+            throw new IOException("Encrypt data has failed! Invalid Mac key Exception", e);
         } catch (NoSuchPaddingException e) {
             throw new IOException("Send Encrypted data has failed! No such padding exception", e);
         } catch (InvalidAlgorithmParameterException e) {
@@ -109,6 +109,30 @@ public class CryptoStuff {
         }
 
         return cipherText;
+    }
+
+    public static byte[] encrypt(byte[] data, int size, Cipher cipher, Mac hMac) throws IOException {
+        int integritySize, ctLength;
+        byte[] cipherText, integrityData;
+
+        try {
+            integritySize = hMac.getMacLength();
+
+            cipherText = new byte[cipher.getOutputSize(size + integritySize)];
+            ctLength = cipher.update(data, 0, size, cipherText, 0);
+
+            hMac.update(data);
+            integrityData = hMac.doFinal();
+            cipher.doFinal(integrityData, 0, integritySize, cipherText, ctLength);
+            return cipher.doFinal(data, 0, size);
+
+        } catch (BadPaddingException e) {
+            throw new IOException("Encrypt data has failed! Bad padding exception", e);
+        } catch (IllegalBlockSizeException e) {
+            throw new IOException("Encrypt data has failed! Illegal block size exception", e);
+        } catch (ShortBufferException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static byte[] decrypt(byte[] data, int size, Properties props) throws IOException, IntegrityFailedException {
@@ -215,6 +239,34 @@ public class CryptoStuff {
             throw new IOException("Send Encrypted data has failed! No such padding exception", e);
         } catch (InvalidAlgorithmParameterException e) {
             throw new IOException("Send Encrypted data has failed! Invalid algorithm parameter exception", e);
+        }
+    }
+
+    public static byte[] decrypt(byte[] data, int size, Cipher cipher, Mac hMac) throws IOException, IntegrityFailedException {
+        byte[] decryptedData, messageIntegrity, realData;
+        int messageLength;
+
+        try {
+            decryptedData = cipher.doFinal(data, 0, size);
+            messageLength = decryptedData.length - hMac.getMacLength();
+            realData = new byte[messageLength];
+            hMac.update(decryptedData, 0, messageLength);
+
+            messageIntegrity = new byte[hMac.getMacLength()];
+            System.arraycopy(decryptedData, messageLength, messageIntegrity, 0, messageIntegrity.length);
+
+            if (MessageDigest.isEqual(hMac.doFinal(), messageIntegrity)) {
+                System.arraycopy(decryptedData, 0, realData, 0, messageLength);
+            } else {
+                // Não mandar o packet! Integrity check failed!
+                throw new IntegrityFailedException("Invalid integrity! Integrity check failed!");
+            }
+            return cipher.doFinal(data, 0, size);
+
+        } catch (BadPaddingException e) {
+            throw new IOException("Receive Encrypted data has failed! Bad padding exception", e);
+        } catch (IllegalBlockSizeException e) {
+            throw new IOException("Receive Encrypted data has failed! Illegal block size exception", e);
         }
     }
 
