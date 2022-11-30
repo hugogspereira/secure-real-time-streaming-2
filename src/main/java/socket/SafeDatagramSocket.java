@@ -45,7 +45,7 @@ public class SafeDatagramSocket {
     // -----------------------------------------------------
 
 
-    public SafeDatagramSocket(String className, String password, SocketAddress addr, String config) throws IOException {
+    public SafeDatagramSocket(String className, String password, SocketAddress addr, String config) throws Exception {
         this.datagramSocket = new DatagramSocket();
 
         readHandshakeProperties(className,password,addr);
@@ -234,6 +234,56 @@ public class SafeDatagramSocket {
         return publicKeyDH;
     }
 
+    private void receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
+        DatagramPacket inPacket;
+        byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
+
+        inPacket = new DatagramPacket(buffer, buffer.length);
+        inSocket.receive(inPacket);
+        DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        // lista de ciphersuites
+        int ciphersuiteLength = inputStream.readInt();
+        bos.write(ciphersuiteLength);
+        byte[] csBox = inputStream.readNBytes(ciphersuiteLength);
+        // mudar de array de bytes para array de string
+        // escrever no bos
+        ciphersuiteRTSP = chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addr.toString().split("/")[1]));
+
+        // Certificate
+        int certLength = inputStream.readInt();
+        bos.write(certLength);
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509"); // TODO
+        byte[] certData = inputStream.readNBytes(certLength);
+        Certificate cert = certFactory.generateCertificate(new ByteArrayInputStream(certData));
+        bos.write(certData);
+        PublicKey publicKeyBox = cert.getPublicKey();
+
+        // Ybox
+        int yBoxLength = inputStream.readInt();
+        bos.write(yBoxLength);
+        byte[] yBox = inputStream.readNBytes(yBoxLength);
+        bos.write(yBox);
+        X509EncodedKeySpec boxPubKeySpec = new X509EncodedKeySpec(yBox); // TODO
+        KeyFactory keyFactory = KeyFactory.getInstance("DH", "BC");
+        PublicKey boxPubKey = keyFactory.generatePublic(boxPubKeySpec);
+        // P
+        int pLength = inputStream.readInt();
+        bos.write(pLength);
+        byte[] pData = inputStream.readNBytes(pLength);
+        BigInteger p = new BigInteger(pData);
+        bos.write(pData);
+        // G
+        int gLength = inputStream.readInt();
+        bos.write(gLength);
+        byte[] gData = inputStream.readNBytes(gLength);
+        BigInteger g = new BigInteger(gData);
+        bos.write(gData);
+
+        //....
+    }
+
     private void receiveSecondMessageHS(DatagramSocket inSocket, PublicKey boxPublicKey) throws Exception {
         DatagramPacket inPacket;
         byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
@@ -327,19 +377,33 @@ public class SafeDatagramSocket {
         sendThirdMessageHS();
     }
 
-    public void createServerHandshake(DatagramSocket inSocket) throws SocketException {
+    public void createServerHandshake(DatagramSocket inSocket) throws Exception {
         receiveFirstMessageHS(inSocket);
         sendSecondMessageHS();
         receiveThirdMessageHS(inSocket);
     }
 
-    private void receiveFirstMessageHS(DatagramSocket inSocket) {
-
-    }
-
     private void sendSecondMessageHS() {
+
     }
 
     private void receiveThirdMessageHS(DatagramSocket inSocket) {
+
+    }
+
+    private String chooseCommonCipher(String[] boxCiphersuites, String[] readCiphersuites) throws Exception {
+        int comparator;
+        for (int i = 0; i < boxCiphersuites.length; i++) {
+            for (int j = 0; j < readCiphersuites.length; j++) {
+                comparator = boxCiphersuites[i].compareTo(readCiphersuites[i]);
+                if(comparator == 0) {
+                    return boxCiphersuites[i];
+                }
+                else if(comparator > 0){
+                    break;
+                }
+            }
+        }
+        throw new Exception("Does not exist common ciphersuites between box and server");
     }
 }
