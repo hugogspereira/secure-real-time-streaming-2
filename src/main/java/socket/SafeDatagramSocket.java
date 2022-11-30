@@ -216,27 +216,35 @@ public class SafeDatagramSocket {
         byte[] message2 = auxBos.toByteArray();
 
         // Signature
+        setDigitalSignature(oos, message2);
+
+        // hash
+        byte[] data = setHash(bos, oos, message1, message2);
+        DatagramPacket packet = new DatagramPacket(data, data.length, addr);
+        datagramSocket.send(packet);
+
+        return publicKeyDH;
+    }
+
+    private void setDigitalSignature(ObjectOutputStream oos, byte[] messageToSign) throws Exception {
         PrivateKey boxPrivateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
         Cipher cipher = Cipher.getInstance(digitalSignature);
         cipher.init(Cipher.ENCRYPT_MODE, boxPrivateKey);
-        byte[] signature = cipher.doFinal(message2);
+        byte[] signature = cipher.doFinal(messageToSign);
         oos.write(signature.length);
         oos.write(signature);
+    }
 
-        // hash
+    private byte[] setHash(ByteArrayOutputStream bos, ObjectOutputStream oos, byte[] message1, byte[] message2) throws Exception {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
-        auxBos = new ByteArrayOutputStream();
+        ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
         auxBos.write(message1);
         auxBos.write(message2);
         byte[] messageHash = md.digest(auxBos.toByteArray());
         oos.write(messageHash.length);
         oos.write(messageHash);
 
-        byte[] data = bos.toByteArray();
-        DatagramPacket packet = new DatagramPacket(data, data.length, addr);
-        datagramSocket.send(packet);
-
-        return publicKeyDH;
+        return bos.toByteArray();
     }
 
     private PublicKey receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
@@ -378,23 +386,10 @@ public class SafeDatagramSocket {
         byte[] message2 = auxBos.toByteArray();
 
         // Signature
-        PrivateKey boxPrivateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
-        Cipher cipher = Cipher.getInstance(digitalSignature);
-        cipher.init(Cipher.ENCRYPT_MODE, boxPrivateKey);
-        byte[] signature = cipher.doFinal(message2);
-        oos.write(signature.length);
-        oos.write(signature);
+        setDigitalSignature(oos,message2);
 
         // hash
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        auxBos = new ByteArrayOutputStream();
-        auxBos.write(message1);
-        auxBos.write(message2);
-        byte[] messageHash = md.digest(auxBos.toByteArray());
-        oos.write(messageHash.length);
-        oos.write(messageHash);
-
-        byte[] data = bos.toByteArray();
+        byte[] data =  setHash(bos, oos, message1, message2);
         DatagramPacket packet = new DatagramPacket(data, data.length, addr);
         datagramSocket.send(packet);
     }
