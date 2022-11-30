@@ -168,47 +168,10 @@ public class SafeDatagramSocket {
      *************************************************************************************
      */
 
-
-
-    private void sendFirstMessageHS() throws Exception {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bos);
-
-        // Read the ciphersuites available for box
-        writeCiphersuitesAvailableBox(oos);
-
-        // Certificate
-        writeCertificate(oos);
-
-        // DH Parameters Generation
-        DHParameterSpec dhParams = Utils.generateDHParameters();
-        keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
-
-        // PublicNum Box
-        PublicKey publicKeyDH = keysDH.getPublic();
-        int dhParamKeyLen = publicKeyDH.getEncoded().length;
-        // P
-        BigInteger p = dhParams.getP();
-        int dhParamPLen = p.toByteArray().length;
-        // G
-        BigInteger g = dhParams.getG();
-        int dhParamGLen = g.toByteArray().length;
-
-        // Write the Dh Parameters
-        writeDHParametersBox(oos, dhParamKeyLen, publicKeyDH, dhParamPLen, p, dhParamGLen, g);
-
-        // Create the message that box will sign
-        byte[] message2 = getMessageToSignBox(dhParamKeyLen, publicKeyDH, dhParamPLen, p, dhParamGLen, g);
-        // Signature
-        setDigitalSignature(oos, message2);
-
-        byte[] messageTotal = bos.toByteArray();
-        // hash
-        setHash(oos, messageTotal);
-
-        byte[] data = bos.toByteArray();
-        DatagramPacket packet = new DatagramPacket(data, data.length, addr);
-        datagramSocket.send(packet);
+    private void retrieveChosenAlgorithm(String cs) throws Exception {
+        Properties ciphersuitesProperties = new Properties();
+        ciphersuitesProperties.load(new FileInputStream(Utils.CIPHERSUITE_CONFIG_FILE));
+        ciphersuiteRTSP = ciphersuitesProperties.getProperty(cs);
     }
 
     private void writeCiphersuitesAvailableBox(ObjectOutputStream oos) throws Exception {
@@ -241,6 +204,100 @@ public class SafeDatagramSocket {
         oos.writeObject(g);
     }
 
+    private void writeDigitalSignature(ObjectOutputStream oos, byte[] messageToSign) throws Exception {
+        PrivateKey privateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
+        Cipher cipher = Cipher.getInstance(digitalSignature);
+        cipher.init(Cipher.ENCRYPT_MODE, privateKey);
+        byte[] signature = cipher.doFinal(messageToSign);
+        oos.write(signature.length);
+        oos.write(signature);
+    }
+
+    private void writeHash(ObjectOutputStream oos, byte[] message) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] messageHash = md.digest(message);
+        oos.write(messageHash.length);
+        oos.write(messageHash);
+    }
+
+
+
+    private byte[] generateSecretDHServer(BigInteger p, BigInteger g, PublicKey pubKey) throws Exception {
+        DHParameterSpec dhParams = new DHParameterSpec(p, g);
+        keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
+
+        return generateSecretDH(pubKey);
+    }
+
+    private byte[] generateSecretDH(PublicKey pubKey) throws Exception {
+        KeyAgreement keyAgree = KeyAgreement.getInstance(diffieHellman, "BC");
+        keyAgree.init(keysDH.getPrivate());
+        keyAgree.doPhase(pubKey, true);
+        byte[] secretKey = keyAgree.generateSecret();
+
+        MessageDigest md = MessageDigest.getInstance("SHA-512");
+        return md.digest(secretKey);
+    }
+
+
+
+    private void generateSymmetricKey(byte[] symmetricAndHmacKey, String[] cipherMode, int mode) throws Exception {
+        byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, Integer.parseInt(cipherMode[1]));
+        ciphersuite = Cipher.getInstance(cipherMode[0]);
+        IvParameterSpec ivSpec = new IvParameterSpec(symmetricKey);
+        SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split("/")[0]);
+        ciphersuite.init(mode, secretKeySpec, ivSpec);
+    }
+
+    private void generateHMacKey(byte[] symmetricAndHmacKey, String[] cipherMode) throws Exception {
+        int finalOffset = symmetricAndHmacKey.length;
+        if(finalOffset-Integer.parseInt(cipherMode[1]) > 256) {
+            finalOffset = Integer.parseInt(cipherMode[1])+256;
+        }
+        byte[] macKey = Arrays.copyOfRange(symmetricAndHmacKey,Integer.parseInt(cipherMode[1]), finalOffset);
+        hMac = Mac.getInstance("HmacSHA256");
+        Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
+        hMac.init(hMacKey);
+    }
+
+
+    private byte[] getBytesOfFirstMessage(int ciphersuiteLength, String[] boxCiphersuites, int certLength, byte[] certData,
+                                          int yBoxLength, byte[] yBox, int pLength, byte[] pData, int gLength, byte[] gData,
+                                          int signatureLength, byte[] signedBytes) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        bos.write(ciphersuiteLength);
+        for(int i = 0; i < ciphersuiteLength; i++) {
+            bos.write(boxCiphersuites[i].getBytes());
+        }
+        bos.write(certLength);
+        bos.write(certData);
+        bos.write(yBoxLength);
+        bos.write(yBox);
+        bos.write(pLength);
+        bos.write(pData);
+        bos.write(gLength);
+        bos.write(gData);
+        bos.write(signatureLength);
+        bos.write(signedBytes);
+        return bos.toByteArray();
+    }
+
+    private byte[] getBytesOfSecondMessage(int ciphersuiteLength, byte[] csData, int certLength, byte[] certData,
+                                          int yServerLength, byte[] yServer, int signatureLength, byte[] signedBytes) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        bos.write(ciphersuiteLength);
+        bos.write(csData);
+        bos.write(certLength);
+        bos.write(certData);
+        bos.write(yServerLength);
+        bos.write(yServer);
+        bos.write(signatureLength);
+        bos.write(signedBytes);
+        return bos.toByteArray();
+    }
+
+
+
     private byte[] getMessageToSignBox(int dhParamKeyLen, PublicKey publicKeyDH, int dhParamPLen, BigInteger p, int dhParamGLen, BigInteger g) throws Exception {
         ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
         ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
@@ -253,20 +310,59 @@ public class SafeDatagramSocket {
         return auxBos.toByteArray();
     }
 
-    private void setDigitalSignature(ObjectOutputStream oos, byte[] messageToSign) throws Exception {
-        PrivateKey privateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
-        Cipher cipher = Cipher.getInstance(digitalSignature);
-        cipher.init(Cipher.ENCRYPT_MODE, privateKey);
-        byte[] signature = cipher.doFinal(messageToSign);
-        oos.write(signature.length);
-        oos.write(signature);
+
+
+    public void createBoxHandshake(DatagramSocket inSocket) throws Exception {
+        sendFirstMessageHS();
+        receiveSecondMessageHS(inSocket);
+        sendThirdMessageHS();
     }
 
-    private void setHash(ObjectOutputStream oos, byte[] message) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] messageHash = md.digest(message);
-        oos.write(messageHash.length);
-        oos.write(messageHash);
+    public void createServerHandshake(DatagramSocket inSocket) throws Exception {
+        receiveFirstMessageHS(inSocket);
+        sendSecondMessageHS();
+        receiveThirdMessageHS(inSocket);
+    }
+
+    private void sendFirstMessageHS() throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+        // Read the ciphersuites available for box
+        writeCiphersuitesAvailableBox(oos);
+
+        // Certificate
+        writeCertificate(oos);
+
+        // DH Parameters Generation
+        DHParameterSpec dhParams = Utils.generateDHParameters();
+        keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
+
+        // PublicNum Box
+        PublicKey publicKeyDH = keysDH.getPublic();
+        int dhParamKeyLen = publicKeyDH.getEncoded().length;
+        // P
+        BigInteger p = dhParams.getP();
+        int dhParamPLen = p.toByteArray().length;
+        // G
+        BigInteger g = dhParams.getG();
+        int dhParamGLen = g.toByteArray().length;
+
+        // Write the Dh Parameters
+        writeDHParametersBox(oos, dhParamKeyLen, publicKeyDH, dhParamPLen, p, dhParamGLen, g);
+
+        // Create the message that box will sign
+        byte[] message2 = getMessageToSignBox(dhParamKeyLen, publicKeyDH, dhParamPLen, p, dhParamGLen, g);
+        // Signature
+        writeDigitalSignature(oos, message2);
+
+        byte[] messageTotal = bos.toByteArray();
+        // hash
+        writeHash(oos, messageTotal);
+
+        byte[] data = bos.toByteArray();
+        DatagramPacket packet = new DatagramPacket(data, data.length, addr);
+        datagramSocket.send(packet);
     }
 
     private void receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
@@ -277,7 +373,6 @@ public class SafeDatagramSocket {
         inSocket.receive(inPacket);
 
         DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
         // lista de ciphersuites
         int ciphersuiteLength = inputStream.readInt();
@@ -287,22 +382,15 @@ public class SafeDatagramSocket {
         }
         ciphersuiteRTSP = chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addr.toString().split("/")[1]));
 
-
         // Certificate
         int certLength = inputStream.readInt();
-        CertificateFactory certFactory = CertificateFactory.getInstance("X.509"); // TODO
         byte[] certData = inputStream.readNBytes(certLength);
-        Certificate cert = certFactory.generateCertificate(new ByteArrayInputStream(certData));
-        // TODO - Validar o certificado
-        PublicKey publicKeyBox = cert.getPublicKey();
-
+        PublicKey publicKeyBox = CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certData)).getPublicKey(); // TODO - Validar o certificado
 
         // Ybox
         int yBoxLength = inputStream.readInt();
         byte[] yBox = inputStream.readNBytes(yBoxLength);
-        X509EncodedKeySpec boxPubKeySpec = new X509EncodedKeySpec(yBox); // TODO
-        KeyFactory keyFactory = KeyFactory.getInstance(diffieHellman, "BC");
-        PublicKey boxPubKey = keyFactory.generatePublic(boxPubKeySpec);
+        PublicKey boxPubKey = KeyFactory.getInstance(diffieHellman, "BC").generatePublic(new X509EncodedKeySpec(yBox)); // TODO
         // P
         int pLength = inputStream.readInt();
         byte[] pData = inputStream.readNBytes(pLength);
@@ -314,15 +402,7 @@ public class SafeDatagramSocket {
 
 
         // Message that was signed
-        ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
-        ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
-        auxOos.write(yBoxLength);
-        auxOos.writeObject(boxPubKey);
-        auxOos.write(pLength);
-        auxOos.writeObject(p);
-        auxOos.write(gLength);
-        auxOos.writeObject(g);
-        byte[] message2 = auxBos.toByteArray();
+        byte[] message2 = getMessageToSignBox(yBoxLength, boxPubKey, pLength, p,gLength,g);
 
         //Signature
         int signatureLength = inputStream.readInt();
@@ -342,21 +422,8 @@ public class SafeDatagramSocket {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
 
         // Generate the bytes
-        bos.write(ciphersuiteLength);
-        for(int i = 0; i < ciphersuiteLength; i++) {
-            bos.write(boxCiphersuites[i].getBytes());
-        }
-        bos.write(certLength);
-        bos.write(certData);
-        bos.write(yBoxLength);
-        bos.write(yBox);
-        bos.write(pLength);
-        bos.write(pData);
-        bos.write(gLength);
-        bos.write(gData);
-        bos.write(signatureLength);
-        bos.write(signedBytes);
-        byte[] messageTotal = bos.toByteArray();
+        byte[] messageTotal = getBytesOfFirstMessage(ciphersuiteLength, boxCiphersuites, certLength, certData,
+                yBoxLength, yBox, pLength, pData, gLength, gData, signatureLength, signedBytes);
 
         // Byte Arrays that will be compared to see if its everything fine
         byte[] messageHash = md.digest(messageTotal);
@@ -380,48 +447,6 @@ public class SafeDatagramSocket {
         generateHMacKey(symmetricAndHmacKey, cipherMode);
     }
 
-    private byte[] generateSecretDHServer(BigInteger p, BigInteger g, PublicKey pubKey) throws Exception {
-        DHParameterSpec dhParams = new DHParameterSpec(p, g);
-        keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
-
-        return generateSecretDH(pubKey);
-    }
-
-    private byte[] generateSecretDH(PublicKey pubKey) throws Exception {
-        KeyAgreement keyAgree = KeyAgreement.getInstance(diffieHellman, "BC");
-        keyAgree.init(keysDH.getPrivate());
-        keyAgree.doPhase(pubKey, true);
-        byte[] secretKey = keyAgree.generateSecret();
-
-        MessageDigest md = MessageDigest.getInstance("SHA-512");
-        return md.digest(secretKey);
-    }
-
-    private void generateSymmetricKey(byte[] symmetricAndHmacKey, String[] cipherMode, int mode) throws Exception {
-        byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, Integer.parseInt(cipherMode[1]));
-        ciphersuite = Cipher.getInstance(cipherMode[0]);
-        IvParameterSpec ivSpec = new IvParameterSpec(symmetricKey);
-        SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split("/")[0]);
-        ciphersuite.init(mode, secretKeySpec, ivSpec);
-    }
-
-    private void generateHMacKey(byte[] symmetricAndHmacKey, String[] cipherMode) throws Exception {
-        int finalOffset = symmetricAndHmacKey.length;
-        if(finalOffset-Integer.parseInt(cipherMode[1]) > 256) {
-            finalOffset = Integer.parseInt(cipherMode[1])+256;
-        }
-        byte[] macKey = Arrays.copyOfRange(symmetricAndHmacKey,Integer.parseInt(cipherMode[1]), finalOffset);
-        hMac = Mac.getInstance("HmacSHA256");
-        Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
-        hMac.init(hMacKey);
-    }
-
-    private void retrieveChosenAlgorithm(String cs) throws Exception {
-        Properties ciphersuitesProperties = new Properties();
-        ciphersuitesProperties.load(new FileInputStream(Utils.CIPHERSUITE_CONFIG_FILE));
-        ciphersuiteRTSP = ciphersuitesProperties.getProperty(cs);
-    }
-
     private void sendSecondMessageHS() throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -442,11 +467,11 @@ public class SafeDatagramSocket {
         // Create the message that server will sign
         byte[] message2 = keysDH.getPublic().getEncoded();
         // Signature
-        setDigitalSignature(oos,message2);
+        writeDigitalSignature(oos,message2);
 
         byte[] messageTotal = bos.toByteArray();
         // hash
-        setHash(oos, messageTotal);
+        writeHash(oos, messageTotal);
 
         byte[] data = bos.toByteArray();
         DatagramPacket packet = new DatagramPacket(data, data.length, addr);
@@ -461,25 +486,30 @@ public class SafeDatagramSocket {
         inSocket.receive(inPacket);
 
         DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
+        // Ciphersuite escolhida
         int ciphersuiteLength = inputStream.readInt();
         byte[] csData = inputStream.readNBytes(ciphersuiteLength);
         String cs = new String(csData);
         retrieveChosenAlgorithm(cs);
 
+        // certificate
         int certLength = inputStream.readInt();
         byte[] certData = inputStream.readNBytes(certLength);
         PublicKey publicKeyServer = CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certData)).getPublicKey(); // TODO - Validar o certificado
 
+        // Yserver
         int yServerLength = inputStream.readInt();
         byte[] yServer = inputStream.readNBytes(yServerLength);
         PublicKey serverPubKey = KeyFactory.getInstance(diffieHellman, "BC").generatePublic(new X509EncodedKeySpec(yServer));  // TODO
 
+
+        // Signature
         int signatureLength = inputStream.readInt();
         Cipher cipher = Cipher.getInstance(digitalSignature);
         cipher.init(Cipher.DECRYPT_MODE, publicKeyServer);
 
+        // Byte Arrays that will be compared to see if its everything fine
         byte[] signedBytes = inputStream.readNBytes(signatureLength);
         byte[] dataSigned = cipher.doFinal(signedBytes);
 
@@ -487,19 +517,12 @@ public class SafeDatagramSocket {
             throw new Exception("Invalid signature! {Yserver} != Sig_kprivServer(Yserver)");
         }
 
+        // Hash
         int hashLength = inputStream.readInt();
         MessageDigest md = MessageDigest.getInstance("SHA-256");
 
         // Generate the bytes
-        bos.write(ciphersuiteLength);
-        bos.write(csData);
-        bos.write(certLength);
-        bos.write(certData);
-        bos.write(yServerLength);
-        bos.write(yServer);
-        bos.write(signatureLength);
-        bos.write(signedBytes);
-        byte[] messageTotal = bos.toByteArray();
+        byte[] messageTotal = getBytesOfSecondMessage(ciphersuiteLength,csData,certLength,certData,yServerLength,yServer,signatureLength,signedBytes);
 
         // Byte Arrays that will be compared to see if its everything fine
         byte[] messageHash = md.digest(messageTotal);
@@ -525,18 +548,6 @@ public class SafeDatagramSocket {
 
     private void sendThirdMessageHS() {
         // TODO
-    }
-
-    public void createBoxHandshake(DatagramSocket inSocket) throws Exception {
-        sendFirstMessageHS();
-        receiveSecondMessageHS(inSocket);
-        sendThirdMessageHS();
-    }
-
-    public void createServerHandshake(DatagramSocket inSocket) throws Exception {
-        receiveFirstMessageHS(inSocket);
-        sendSecondMessageHS();
-        receiveThirdMessageHS(inSocket);
     }
 
     private void receiveThirdMessageHS(DatagramSocket inSocket) {
