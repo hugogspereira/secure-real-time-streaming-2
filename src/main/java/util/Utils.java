@@ -37,8 +37,8 @@ public class Utils {
 		return (DHParameterSpec) params.getParameterSpec(DHParameterSpec.class);
 	}
 
-	public static KeyPair generateDHKeys(DHParameterSpec specs) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
-		KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DH", "BC");
+	public static KeyPair generateDHKeys(String diffieHellman, DHParameterSpec specs) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
+		KeyPairGenerator keyGen = KeyPairGenerator.getInstance(diffieHellman, "BC");
 		keyGen.initialize(specs);
 		return keyGen.generateKeyPair();
 	}

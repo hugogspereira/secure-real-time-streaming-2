@@ -37,6 +37,7 @@ public class SafeDatagramSocket {
     // -----------------------------------------------------
     private String digitalSignature;
     private String diffieHellman;
+    private KeyPair keysDH;
     private String secureEnvelope;
     // -----------------------------------------------------
     private Cipher ciphersuite;
@@ -189,7 +190,8 @@ public class SafeDatagramSocket {
         oos.writeObject(certificate);
 
         DHParameterSpec dhParams = Utils.generateDHParameters();
-        PublicKey publicKeyDH = Utils.generateDHKeys(dhParams).getPublic();
+        keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
+        PublicKey publicKeyDH = keysDH.getPublic();
         ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
         ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
         // PublicNum Box
@@ -318,13 +320,13 @@ public class SafeDatagramSocket {
             throw new Exception("Message content have been changed!");
         }
 
-        // Generate the secret - TODO - está mal - onde é aplicado o P e o G ???
+        // Generate the secret
+        DHParameterSpec dhParams = new DHParameterSpec(p, g);
+        keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
         KeyAgreement serverKeyAgree = KeyAgreement.getInstance(diffieHellman, "BC");
-        PrivateKey serverPrivateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName);
-        serverKeyAgree.init(serverPrivateKey);
-        serverKeyAgree.doPhase(publicKeyBox, true);
+        serverKeyAgree.init(keysDH.getPrivate());
+        serverKeyAgree.doPhase(boxPubKey, true);
         byte[] secretKey = serverKeyAgree.generateSecret();
-        // TODO
 
         md = MessageDigest.getInstance("SHA-512");
         byte[] symmetricAndHmacKey = md.digest(secretKey);
@@ -346,7 +348,7 @@ public class SafeDatagramSocket {
         Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
         hMac.init(hMacKey);
 
-        return boxPubKey;
+        return keysDH.getPublic();
     }
 
     private void sendSecondMessageHS(PublicKey serverPublicKey) throws Exception {
@@ -456,7 +458,7 @@ public class SafeDatagramSocket {
 
         // Generate the secret
         KeyAgreement boxKeyAgree = KeyAgreement.getInstance(diffieHellman, "BC");
-        boxKeyAgree.init(boxPublicKey);
+        boxKeyAgree.init(keysDH.getPrivate());
         boxKeyAgree.doPhase(serverPubKey, true);
         byte[] secretKey = boxKeyAgree.generateSecret();
 
