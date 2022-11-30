@@ -2,42 +2,57 @@ package socket;
 
 import util.*;
 import java.io.*;
+import java.math.BigInteger;
 import java.net.*;
 import java.security.*;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Properties;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import javax.crypto.Cipher;
+import javax.crypto.KeyAgreement;
+import javax.crypto.Mac;
 import javax.crypto.spec.DHParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
-import static util.Utils.PATH_TO_BOX_CONFIG;
-import static util.Utils.PATH_TO_KEYSTORE;
+import static util.Utils.*;
 
 public class SafeDatagramSocket {
 
-    private static final String CIPHERSUITE = "CIPHERSUITE";
-    private static final String KEY = "KEY";
-    private static final String IV = "IV";
-    private static final String INTEGRITY = "INTEGRITY";
-    private static final String MACKEY = "MACKEY";
+    private static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
+    private static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
+    private static final String SECURE_ENVELOPE = "SECURE_ENVELOPE";
+
     public static final byte[] CONTROL_MESSAGE = new byte[1];
     public static final String DEFAULT_ADDRESS = "0.0.0.0:0000";
 
-    private String addr;
-    Properties properties;
+    // -----------------------------------------------------
+    private SocketAddress addr;
     private DatagramSocket datagramSocket;
-    private String keystoreName;
+    private String fromClassName;
     private String password;
+    // -----------------------------------------------------
+    private String digitalSignature;
+    private String diffieHellman;
+    private String secureEnvelope;
+    // -----------------------------------------------------
+    private Cipher ciphersuite;
+    private String ciphersuiteRTSP;
+    private Mac hMac;
+    // -----------------------------------------------------
 
-    public SafeDatagramSocket(String keyStore, String password, SocketAddress addr, String config) throws IOException {
+
+    public SafeDatagramSocket(String className, String password, SocketAddress addr, String config) throws IOException {
         this.datagramSocket = new DatagramSocket();
-        this.keystoreName = keyStore;
-        this.password = password;
-        
-        readProperties(addr, config);
+
+        readHandshakeProperties(className,password,addr);
     }
 
-    public SafeDatagramSocket(String keyStore, String password, InetSocketAddress addr, String boxConfig) throws IOException {
+    public SafeDatagramSocket(String className, String password, InetSocketAddress addr, String boxConfig) throws IOException {
+        // TODO - Suposto ser multicast ???
         if(addr.getAddress().isMulticastAddress()){
             MulticastSocket datagramSocket = new MulticastSocket(addr.getPort());
             datagramSocket.joinGroup(addr, null); 
@@ -47,32 +62,26 @@ public class SafeDatagramSocket {
             this.datagramSocket = new DatagramSocket();
         }
 
-        this.keystoreName = keyStore;
-        this.password = password;
-
-        readProperties(addr, boxConfig);
+        readHandshakeProperties(className,password,addr);
     }
 
-    private void readProperties(SocketAddress addr, String boxConfig)
-            throws IOException {
+    private void readHandshakeProperties(String className, String password, SocketAddress addr) throws IOException {
         Provider provider = Security.getProvider("BC");
         if (provider == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
+        this.fromClassName = className;
+        this.password = password;
+        this.addr = addr;
 
         try {
-            InputStream inputStream = new ByteArrayInputStream(
-                    ConfigReader.read(boxConfig, addr.toString().split("/")[1]).toByteArray());
-            if (inputStream == null) {
-                System.err.println("Configuration Box file not found!");
-                System.exit(1);
-            }
-            properties = new Properties();
-            properties.load(inputStream);
-
-            this.addr = addr.toString();
-
-        } catch (Exception e) {
+            Properties properties = new Properties();
+            properties.load(new FileInputStream(HS_CONFIG_FILE));
+            digitalSignature = checkProperty(properties, DIGITAL_SIGNATURE);
+            diffieHellman = checkProperty(properties, DIFFIE_HELLMAN);
+            secureEnvelope = checkProperty(properties, SECURE_ENVELOPE);
+        }
+        catch (Exception e) {
             throw new IOException(e);
         }
     }
@@ -124,21 +133,23 @@ public class SafeDatagramSocket {
     }
 
     public void printBoxConfigStatus(String movieName, int count, long afs, double totalTime) {
-        String boxKey = checkProperty(properties, KEY);
+        /* TODO
+        String boxKey = ciphersuite.getAlgorithm();
         String boxIntegrity = checkProperty(properties, INTEGRITY);
         if (boxIntegrity == null)
             boxIntegrity = checkProperty(properties, MACKEY);
         PrintStats.toPrintBoxConfigStats(movieName, checkProperty(properties, CIPHERSUITE), boxKey, boxKey.length(), boxIntegrity);
-        PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+        PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime); */
     }
 
     public void printServerConfigStatus(String movieName, int count, long afs, double totalTime) {
+        /* TODO
         String boxKey = checkProperty(properties, KEY);
         String boxIntegrity = checkProperty(properties, INTEGRITY);
         if (boxIntegrity == null)
             boxIntegrity = checkProperty(properties, MACKEY);
         PrintStats.toPrintServerConfigStats(movieName, checkProperty(properties, CIPHERSUITE), boxKey, boxKey.length(), boxIntegrity);
-        PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+        PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime); */
     }
 
 
@@ -152,87 +163,161 @@ public class SafeDatagramSocket {
 
 
 
-    private void sendFirstMessageHS() throws Exception {
+    private PublicKey sendFirstMessageHS() throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
 
         String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, addr.toString().split("/")[1]);
         int ciphersuitesLength = ciphersuites.length;
-
+        // Array of ciphersuites
         oos.write(ciphersuitesLength);
         oos.writeObject(ciphersuites);
 
-        /*
-        // TODO - será isto ???????
-        Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE+keystoreName, password, "aliasEntry");
+        Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
         int certificateLength = certificate.getEncoded().length;
-        oos.write(certificateLength); //
-        oos.writeObject(certificate); //
-        /* */
+        // Certificate
+        oos.write(certificateLength);
+        oos.writeObject(certificate);
 
-        // TODO - Para já estou só a apensar em DH, depois tentamos generalizar, o q achas?
         DHParameterSpec dhParams = Utils.generateDHParameters();
-        KeyPair pair = Utils.generateDHKeys(dhParams);
+        PublicKey publicKeyDH = Utils.generateDHKeys(dhParams).getPublic();
+        ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
+        ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
+        // PublicNum Box
+        int dhParamKeyLen = publicKeyDH.getEncoded().length;
+        oos.write(dhParamKeyLen);
+        oos.writeObject(publicKeyDH);
+        auxOos.writeObject(publicKeyDH);
+        // P
+        BigInteger p = dhParams.getP();
+        int dhParamPLen = p.toByteArray().length;
+        oos.write(dhParamPLen);
+        oos.writeObject(p);
+        auxOos.writeObject(p);
+        // G
+        BigInteger g = dhParams.getG();
+        int dhParamGLen = g.toByteArray().length;
+        oos.write(dhParamGLen);
+        oos.writeObject(g);
+        auxOos.writeObject(p);
 
-        int dhParamsLen = ((KeyPair) pair).getPublic().getEncoded().length;
-        oos.write(dhParamsLen); //
-        oos.writeObject(pair.getPublic());
+        byte[] message1 = bos.toByteArray();
+        byte[] message2 = auxBos.toByteArray();
 
-        dhParamsLen = dhParams.getP().toByteArray().length;
-        oos.write(dhParamsLen); //
-        oos.writeObject(dhParams.getP());
-
-        dhParamsLen = dhParams.getG().toByteArray().length;
-        oos.write(dhParamsLen); //
-        oos.writeObject(dhParams.getG());
-
-        // TODO
         // Signature
-        PrivateKey boxPublicKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+keystoreName, password, "aliasEntry");
-        // ...
+        PrivateKey boxPrivateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
+        Cipher cipher = Cipher.getInstance(digitalSignature);
+        cipher.init(Cipher.ENCRYPT_MODE, boxPrivateKey);
+        byte[] signature = cipher.doFinal(message2);
+        oos.write(signature.length);
+        oos.write(signature);
 
         // hash
         MessageDigest md = MessageDigest.getInstance("SHA-256");
-        //...
+        auxBos = new ByteArrayOutputStream();
+        auxBos.write(message1);
+        auxBos.write(message2);
+        byte[] messageHash = md.digest(auxBos.toByteArray());
+        oos.write(messageHash.length);
+        oos.write(messageHash);
+
+        byte[] data = bos.toByteArray();
+        DatagramPacket packet = new DatagramPacket(data, data.length, addr);
+        datagramSocket.send(packet);
+
+        return publicKeyDH;
     }
 
-    private void receiveSecondMessageHS(DatagramSocket inSocket) throws Exception {
+    private void receiveSecondMessageHS(DatagramSocket inSocket, PublicKey boxPublicKey) throws Exception {
         DatagramPacket inPacket;
-        byte[] buffer = new byte[5*1024]; // SIZE ???
+        byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
 
         inPacket = new DatagramPacket(buffer, buffer.length);
         inSocket.receive(inPacket);
         DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
-        int ciphersuitelength = inputStream.readInt();
-        String ciphersuite = new String(inputStream.readNBytes(ciphersuitelength));
+        int ciphersuiteLength = inputStream.readInt();
+        bos.write(ciphersuiteLength);
+        Properties ciphersuitesProperties = new Properties();
+        ciphersuitesProperties.load(new FileInputStream(Utils.CIPHERSUITE_CONFIG_FILE));
+        byte[] csData = inputStream.readNBytes(ciphersuiteLength);
+        String cs = new String(csData);
+        bos.write(csData);
+        ciphersuiteRTSP = ciphersuitesProperties.getProperty(cs);
 
         int certLength = inputStream.readInt();
-        // Certificado ? - como deserialize
-        // ...
+        bos.write(certLength);
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509"); // TODO
+        byte[] certData = inputStream.readNBytes(certLength);
+        Certificate cert = certFactory.generateCertificate(new ByteArrayInputStream(certData));
+        bos.write(certData);
+        PublicKey publicKeyServer = cert.getPublicKey();
 
         int yServerLength = inputStream.readInt();
-        // TODO
-        X509EncodedKeySpec serverPubKeySpec = new X509EncodedKeySpec(inputStream.readNBytes(yServerLength));
+        bos.write(yServerLength);
+        byte[] yServer = inputStream.readNBytes(yServerLength);
+        bos.write(yServer);
+        X509EncodedKeySpec serverPubKeySpec = new X509EncodedKeySpec(yServer); // TODO
         KeyFactory keyFactory = KeyFactory.getInstance("DH", "BC");
         PublicKey serverPubKey = keyFactory.generatePublic(serverPubKeySpec);
 
         int signatureLength = inputStream.readInt();
-        //...
+        bos.write(signatureLength);
+        Cipher cipher = Cipher.getInstance(digitalSignature);
+        cipher.init(Cipher.DECRYPT_MODE, serverPubKey);
+        byte[] signedBytes = inputStream.readNBytes(signatureLength);
+        byte[] dataSigned = cipher.doFinal(signedBytes);
+        bos.write(signedBytes);
+
+        if(!yServer.equals(dataSigned)) {
+            throw new Exception("Invalid signature! {Yserver} != Sig_kprivServer(Yserver)");
+        }
 
         int hashLength = inputStream.readInt();
-        // ...
+        bos.write(hashLength);
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] messageHash = md.digest(bos.toByteArray());
 
+        byte[] hash = inputStream.readNBytes(hashLength);
+        if(!messageHash.equals(hash)) {
+            throw new Exception("Message content have been changed!");
+        }
+
+        // Generate the secret
+        KeyAgreement boxKeyAgree = KeyAgreement.getInstance(diffieHellman, "BC");
+        boxKeyAgree.init(boxPublicKey);
+        boxKeyAgree.doPhase(serverPubKey, true);
+        byte[] secretKey = boxKeyAgree.generateSecret();
+
+        md = MessageDigest.getInstance("SHA-512");
+        byte[] symetricAndHmacKey = md.digest(secretKey);
+
+        // Parte vai para a chave simetrica
+        String[] cipherMode = ciphersuiteRTSP.split("-");
+        byte[] symetricKey = Arrays.copyOfRange(symetricAndHmacKey,0, Integer.parseInt(cipherMode[1]));
+        ciphersuite = Cipher.getInstance(cipherMode[0]);
+        IvParameterSpec ivSpec = new IvParameterSpec(symetricKey);
+        SecretKeySpec secretKeySpec = new SecretKeySpec(symetricKey, cipherMode[0].split("/")[0]);
+        ciphersuite.init(Cipher.DECRYPT_MODE, secretKeySpec, ivSpec);
+        // Parte que vai para a chave HMAC
+        int finalOffset = symetricAndHmacKey.length;
+        if(finalOffset-Integer.parseInt(cipherMode[1]) > 256) {
+            finalOffset = Integer.parseInt(cipherMode[1])+256;
+        }
+        byte[] macKey = Arrays.copyOfRange(symetricAndHmacKey,Integer.parseInt(cipherMode[1]), finalOffset);
+        hMac = Mac.getInstance("HmacSHA256");
+        Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
+        hMac.init(hMacKey);
     }
 
     private void sendThirdMessageHS() {
-        /*int movieNameLength = inputStream.readInt();
-        String movieName =  new String(inputStream.readNBytes(movieNameLength));*/
+        // TODO
     }
 
     public void createBoxHandshake(DatagramSocket inSocket) throws Exception {
-        sendFirstMessageHS();
-        receiveSecondMessageHS(inSocket);
+        PublicKey boxPublicKey = sendFirstMessageHS();
+        receiveSecondMessageHS(inSocket, boxPublicKey);
         sendThirdMessageHS();
     }
 
