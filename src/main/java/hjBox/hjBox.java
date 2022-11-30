@@ -52,7 +52,7 @@ public class hjBox {
         if (args.length != 3) {
             /*
                 src/main/java/hjBox/config.properties.encrypted
-                src/main/java/hjBox/box-cryptoconfig.txt
+                src/main/java/hjBox/box-cryptoconfig.txt  -> no need
                 omsqptaesdfommptvsnfiocmlesrfoqppms
 		    */
             System.out.println("Erro, usar: myBox <config> <box-config> <password>");
@@ -68,7 +68,7 @@ public class hjBox {
         Set<SocketAddress> outSocketAddressSet = Arrays.stream(destinations.split(",")).map(s -> parseSocketAddress(s)).collect(Collectors.toSet());
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
-        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress, args[1]);  // <box-config>
+        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress);
 
         byte[] buffer = new byte[5 * 1024];
         DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = -1; String movieName = "";

@@ -20,7 +20,7 @@ public class hjStreamServer {
 					src/main/java/hjStreamServer/movies-cryptoconfig.txt.encrypted
 					236.16.20.30
 					9999
-					src/main/java/hjStreamServer/stream-cryptoconfig.txt
+					src/main/java/hjStreamServer/stream-cryptoconfig.txt -> no need
 					omsqptaesdfommptvsnfiocmlesrfoqppms
 				 */
 				System.out.println("Erro, usar: mySend <movie> <movies-config> <ip-multicast-address> <port> <box-config> <password>");
@@ -34,7 +34,7 @@ public class hjStreamServer {
 
 		DataInputStream g = (new DecryptMovie(args[0], args[1], args[5]).getDataInputStream()); // <movie> <movies-config> <password>
 		SocketAddress addr = new InetSocketAddress(args[2], Integer.parseInt(args[3])); 		// <ip-multicast-address> <port>
-		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), "password", addr, args[4]);  // <box-config>
+		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), "password", addr);
 
 		DatagramPacket p = new DatagramPacket(buff, buff.length, addr);
 		long t0 = System.nanoTime(), q0 = 0, afs = 0;

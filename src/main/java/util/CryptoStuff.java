@@ -115,6 +115,10 @@ public class CryptoStuff {
         int integritySize, ctLength;
         byte[] cipherText, integrityData;
 
+        if(cipher == null || hMac == null) {
+            throw new IOException("Something went wrong with handshake!");
+        }
+
         try {
             integritySize = hMac.getMacLength();
 
@@ -244,6 +248,10 @@ public class CryptoStuff {
     public static byte[] decrypt(byte[] data, int size, Cipher cipher, Mac hMac) throws IOException, IntegrityFailedException {
         byte[] decryptedData, messageIntegrity, realData;
         int messageLength;
+
+        if(cipher == null || hMac == null) {
+            throw new IOException("Something went wrong with handshake!");
+        }
 
         try {
             decryptedData = cipher.doFinal(data, 0, size);
