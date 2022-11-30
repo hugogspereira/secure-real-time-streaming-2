@@ -237,7 +237,7 @@ public class SafeDatagramSocket {
         return publicKeyDH;
     }
 
-    private void receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
+    private PublicKey receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
         DatagramPacket inPacket;
         byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
 
@@ -318,12 +318,13 @@ public class SafeDatagramSocket {
             throw new Exception("Message content have been changed!");
         }
 
-        // Generate the secret
+        // Generate the secret - TODO - está mal - onde é aplicado o P e o G ???
         KeyAgreement serverKeyAgree = KeyAgreement.getInstance(diffieHellman, "BC");
         PrivateKey serverPrivateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName);
         serverKeyAgree.init(serverPrivateKey);
         serverKeyAgree.doPhase(publicKeyBox, true);
         byte[] secretKey = serverKeyAgree.generateSecret();
+        // TODO
 
         md = MessageDigest.getInstance("SHA-512");
         byte[] symmetricAndHmacKey = md.digest(secretKey);
@@ -344,6 +345,56 @@ public class SafeDatagramSocket {
         hMac = Mac.getInstance("HmacSHA256");
         Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
         hMac.init(hMacKey);
+
+        return boxPubKey;
+    }
+
+    private void sendSecondMessageHS(PublicKey serverPublicKey) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+        int ciphersuitesLength = ciphersuiteRTSP.length();
+        // ciphersuite escolhida
+        oos.write(ciphersuitesLength);
+        oos.write(ciphersuiteRTSP.getBytes());
+
+        Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
+        int certificateLength = certificate.getEncoded().length;
+        // Certificate
+        oos.write(certificateLength);
+        oos.writeObject(certificate);
+
+        ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
+        ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
+        // PublicNum Box
+        int dhParamKeyLen = serverPublicKey.getEncoded().length;
+        oos.write(dhParamKeyLen);
+        oos.writeObject(serverPublicKey);
+        auxOos.writeObject(serverPublicKey);
+
+        byte[] message1 = bos.toByteArray();
+        byte[] message2 = auxBos.toByteArray();
+
+        // Signature
+        PrivateKey boxPrivateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
+        Cipher cipher = Cipher.getInstance(digitalSignature);
+        cipher.init(Cipher.ENCRYPT_MODE, boxPrivateKey);
+        byte[] signature = cipher.doFinal(message2);
+        oos.write(signature.length);
+        oos.write(signature);
+
+        // hash
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        auxBos = new ByteArrayOutputStream();
+        auxBos.write(message1);
+        auxBos.write(message2);
+        byte[] messageHash = md.digest(auxBos.toByteArray());
+        oos.write(messageHash.length);
+        oos.write(messageHash);
+
+        byte[] data = bos.toByteArray();
+        DatagramPacket packet = new DatagramPacket(data, data.length, addr);
+        datagramSocket.send(packet);
     }
 
     private void receiveSecondMessageHS(DatagramSocket inSocket, PublicKey boxPublicKey) throws Exception {
@@ -441,17 +492,13 @@ public class SafeDatagramSocket {
     }
 
     public void createServerHandshake(DatagramSocket inSocket) throws Exception {
-        receiveFirstMessageHS(inSocket);
-        sendSecondMessageHS();
+        PublicKey serverPublicKey = receiveFirstMessageHS(inSocket);
+        sendSecondMessageHS(serverPublicKey);
         receiveThirdMessageHS(inSocket);
     }
 
-    private void sendSecondMessageHS() {
-
-    }
-
     private void receiveThirdMessageHS(DatagramSocket inSocket) {
-
+        // TODO
     }
 
     private String chooseCommonCipher(String[] boxCiphersuites, String[] readCiphersuites) throws Exception {
