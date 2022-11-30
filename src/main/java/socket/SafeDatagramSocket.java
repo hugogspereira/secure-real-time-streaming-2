@@ -191,34 +191,41 @@ public class SafeDatagramSocket {
         DHParameterSpec dhParams = Utils.generateDHParameters();
         keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
         PublicKey publicKeyDH = keysDH.getPublic();
-        ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
-        ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
         // PublicNum Box
         int dhParamKeyLen = publicKeyDH.getEncoded().length;
         oos.write(dhParamKeyLen);
         oos.writeObject(publicKeyDH);
-        auxOos.writeObject(publicKeyDH);
         // P
         BigInteger p = dhParams.getP();
         int dhParamPLen = p.toByteArray().length;
         oos.write(dhParamPLen);
         oos.writeObject(p);
-        auxOos.writeObject(p);
         // G
         BigInteger g = dhParams.getG();
         int dhParamGLen = g.toByteArray().length;
         oos.write(dhParamGLen);
         oos.writeObject(g);
-        auxOos.writeObject(p);
 
-        byte[] message1 = bos.toByteArray();
+        ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
+        ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
+        auxOos.writeObject(dhParamKeyLen);
+        auxOos.writeObject(publicKeyDH);
+        auxOos.writeObject(dhParamPLen);
+        auxOos.writeObject(p);
+        auxOos.writeObject(dhParamGLen);
+        auxOos.writeObject(g);
+
         byte[] message2 = auxBos.toByteArray();
 
         // Signature
         setDigitalSignature(oos, message2);
 
+        byte[] message1 = bos.toByteArray();
+
         // hash
-        byte[] data = setHash(bos, oos, message1, message2);
+        setHash(bos, oos, message1, message2);
+
+        byte[] data = bos.toByteArray();
         DatagramPacket packet = new DatagramPacket(data, data.length, addr);
         datagramSocket.send(packet);
     }
@@ -232,16 +239,15 @@ public class SafeDatagramSocket {
         oos.write(signature);
     }
 
-    private byte[] setHash(ByteArrayOutputStream bos, ObjectOutputStream oos, byte[] message1, byte[] message2) throws Exception {
+    private void setHash(ByteArrayOutputStream bos, ObjectOutputStream oos, byte[] message1, byte[] message2) throws Exception {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
         auxBos.write(message1);
-        auxBos.write(message2);
+        // neste momento no receive so estamos a ver o message1, n percebemos bem o que temos de usar hash
+        //auxBos.write(message2);
         byte[] messageHash = md.digest(auxBos.toByteArray());
         oos.write(messageHash.length);
         oos.write(messageHash);
-
-        return bos.toByteArray();
     }
 
     private void receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
@@ -304,12 +310,12 @@ public class SafeDatagramSocket {
 
         //Signature
         int signatureLength = inputStream.readInt();
-        //bos.write(signatureLength);
+        bos.write(signatureLength);
         Cipher cipher = Cipher.getInstance(digitalSignature);
         cipher.init(Cipher.DECRYPT_MODE, boxPubKey);
         byte[] signedBytes = inputStream.readNBytes(signatureLength);
         byte[] dataSigned = cipher.doFinal(signedBytes);
-        //bos.write(signedBytes);
+        bos.write(signedBytes);
 
         if(!dataSigned.equals(auxBos.toByteArray()) ) {
             throw new Exception("Invalid signature! {Yserver || P || G} != Sig_kprivServer(Yserver || P || G)");
@@ -377,14 +383,15 @@ public class SafeDatagramSocket {
         oos.writeObject(keysDH.getPublic());
         auxOos.writeObject(keysDH.getPublic());
 
-        byte[] message1 = bos.toByteArray();
         byte[] message2 = auxBos.toByteArray();
 
         // Signature
         setDigitalSignature(oos,message2);
 
+        byte[] message1 = bos.toByteArray();
         // hash
-        byte[] data =  setHash(bos, oos, message1, message2);
+        setHash(bos, oos, message1, message2);
+        byte[] data = bos.toByteArray();
         DatagramPacket packet = new DatagramPacket(data, data.length, addr);
         datagramSocket.send(packet);
     }
@@ -425,12 +432,12 @@ public class SafeDatagramSocket {
         PublicKey serverPubKey = keyFactory.generatePublic(serverPubKeySpec);
 
         int signatureLength = inputStream.readInt();
-        //bos.write(signatureLength);
+        bos.write(signatureLength);
         Cipher cipher = Cipher.getInstance(digitalSignature);
         cipher.init(Cipher.DECRYPT_MODE, serverPubKey);
         byte[] signedBytes = inputStream.readNBytes(signatureLength);
         byte[] dataSigned = cipher.doFinal(signedBytes);
-        //bos.write(signedBytes);
+        bos.write(signedBytes);
 
         if(!yServer.equals(dataSigned)) {
             throw new Exception("Invalid signature! {Yserver} != Sig_kprivServer(Yserver)");
