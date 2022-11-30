@@ -124,8 +124,7 @@ public class CryptoStuff {
             hMac.update(data);
             integrityData = hMac.doFinal();
             cipher.doFinal(integrityData, 0, integritySize, cipherText, ctLength);
-            return cipher.doFinal(data, 0, size);
-
+            return cipherText;
         } catch (BadPaddingException e) {
             throw new IOException("Encrypt data has failed! Bad padding exception", e);
         } catch (IllegalBlockSizeException e) {
@@ -261,7 +260,7 @@ public class CryptoStuff {
                 // Não mandar o packet! Integrity check failed!
                 throw new IntegrityFailedException("Invalid integrity! Integrity check failed!");
             }
-            return cipher.doFinal(data, 0, size);
+            return realData;
 
         } catch (BadPaddingException e) {
             throw new IOException("Receive Encrypted data has failed! Bad padding exception", e);
