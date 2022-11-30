@@ -1,7 +1,6 @@
 package util;
 
 import crypto.PBEFileDecryption;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -31,7 +30,6 @@ public class ConfigReader {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
             boolean finished = false;
-            String[] line;
             for (int i = index+1; i < lines.size() && !finished; i++) {
                 aux = lines.get(i);
 
@@ -72,7 +70,8 @@ public class ConfigReader {
                 throw new Exception("target not found");
             }
             List<String> list = lines.subList(firstIndex+1, lastIndex);
-            return list.toArray(new String[0]); // TODO
+            String[] listCipher = new String[list.size()];
+            return list.toArray(listCipher);
         }
         catch (Exception e) {
             e.printStackTrace();

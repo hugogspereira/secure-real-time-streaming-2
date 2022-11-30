@@ -11,6 +11,8 @@ public class Utils {
 	private static String	digits = "0123456789abcdef";
 	public static final String PATH_TO_KEYSTORE = "src/main/java/keystore/";
 	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt";
+	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties";
+	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties";
 
 	public static String toHex(byte[] data, int length) {
 		StringBuffer buf = new StringBuffer();
