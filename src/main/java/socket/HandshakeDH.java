@@ -23,6 +23,7 @@ import static util.Utils.*;
 
 public class HandshakeDH implements Handshake {
 
+	private static final String HMAC_ALGORITHM = "HmacSHA256";
 	private SocketAddress addr;
 	private DatagramSocket datagramSocket;
 	private String fromClassName;
@@ -52,8 +53,8 @@ public class HandshakeDH implements Handshake {
 		preSharedHMAC.load(new FileInputStream(PRESHARED_CONFIG_FILE));
 		String hmacKey = preSharedHMAC.getProperty(addr.toString().split("/")[1].replace(":","-"));
 
-		hMacHS = Mac.getInstance("HmacSHA256");
-		Key hMacKey = new SecretKeySpec(hmacKey.getBytes(), "HmacSHA256");
+		hMacHS = Mac.getInstance(HMAC_ALGORITHM);
+		Key hMacKey = new SecretKeySpec(hmacKey.getBytes(), HMAC_ALGORITHM);
 		hMacHS.init(hMacKey);
 	}
 
@@ -153,11 +154,10 @@ public class HandshakeDH implements Handshake {
 			finalOffset = Integer.parseInt(cipherMode[1])+256;
 		}
 		byte[] macKey = Arrays.copyOfRange(symmetricAndHmacKey,Integer.parseInt(cipherMode[1]), finalOffset);
-		hMac = Mac.getInstance("HmacSHA256");
-		Key hMacKey = new SecretKeySpec(macKey, "HmacSHA256"); //
+		hMac = Mac.getInstance(HMAC_ALGORITHM);
+		Key hMacKey = new SecretKeySpec(macKey, HMAC_ALGORITHM); //
 		hMac.init(hMacKey);
 	}
-
 
 	private byte[] getBytesOfFirstMessage(int ciphersuiteLength, String[] boxCiphersuites, int certLength, byte[] certData,
 										  int yBoxLength, byte[] yBox, int pLength, byte[] pData, int gLength, byte[] gData,
@@ -324,24 +324,24 @@ public class HandshakeDH implements Handshake {
 			throw new Exception("Invalid signature! {Yserver || P || G} != Sig_kprivServer(Yserver || P || G)");
 		}
 
-		/*
-		TODO !!!
-		// Hash
-		int hashLength = inputStream.readInt();
-		MessageDigest md = MessageDigest.getInstance("SHA-256");
+
+		// HMAC
+		int hmacLength = inputStream.readInt();
 
 		// Generate the bytes
 		byte[] messageTotal = getBytesOfFirstMessage(ciphersuiteLength, boxCiphersuites, certLength, certData,
 				yBoxLength, yBox, pLength, pData, gLength, gData, signatureLength, signedBytes);
 
-		// Byte Arrays that will be compared to see if its everything fine
-		byte[] messageHash = md.digest(messageTotal);
-		byte[] hash = inputStream.readNBytes(hashLength);
+		// Byte Arrays that will be compared to see if it is everything fine
+		hMac.update(messageTotal);
+		byte[] messageHMAC = hMac.doFinal();
+		byte[] hmac = inputStream.readNBytes(hmacLength);
 
-		if(!messageHash.equals(hash)) {
+		if(!messageHMAC.equals(hmac)) {
+			// MessageDigest.isEqual(messageHMAC, hmac)
 			throw new Exception("Message content have been changed!");
 		}
-		*/
+
 
 		// -------------------------
 		// Box - computations
@@ -426,23 +426,21 @@ public class HandshakeDH implements Handshake {
 			throw new Exception("Invalid signature! {Yserver} != Sig_kprivServer(Yserver)");
 		}
 
-		/*
-		TODO
-		// Hash
-		int hashLength = inputStream.readInt();
-		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		// HMAC
+		int hmacLength = inputStream.readInt();
 
 		// Generate the bytes
 		byte[] messageTotal = getBytesOfSecondMessage(ciphersuiteLength,csData,certLength,certData,yServerLength,yServer,signatureLength,signedBytes);
 
-		// Byte Arrays that will be compared to see if its everything fine
-		byte[] messageHash = md.digest(messageTotal);
-		byte[] hash = inputStream.readNBytes(hashLength);
+		// Byte Arrays that will be compared to see if it is everything fine
+		hMac.update(messageTotal);
+		byte[] messageHMAC = hMac.doFinal();
+		byte[] hmac = inputStream.readNBytes(hmacLength);
 
-		if(!messageHash.equals(hash)) {
+		if(!messageHMAC.equals(hmac)) {
+			// MessageDigest.isEqual(messageHMAC, hmac)
 			throw new Exception("Message content have been changed!");
 		}
-		 */
 
 
 		// -------------------------
