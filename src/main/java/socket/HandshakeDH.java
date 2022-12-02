@@ -34,15 +34,27 @@ public class HandshakeDH implements Handshake {
 	// ---------------------------------------------
 	private Cipher ciphersuite;
 	private String ciphersuiteRTSP;
-	private Mac hMac;
+	private Mac hMac; // for the symmetric encryption
+	private Mac hMacHS; // for the HS
 
-	public HandshakeDH(DatagramSocket datagramSocket, String digitalSignature, String diffieHellman, String className, String password, SocketAddress addr) {
+	public HandshakeDH(DatagramSocket datagramSocket, String digitalSignature, String diffieHellman, String className, String password, SocketAddress addr) throws Exception {
 		this.digitalSignature = digitalSignature;
 		this.diffieHellman = diffieHellman;
 		this.fromClassName = className;
 		this.password = password;
 		this.addr = addr;
 		this.datagramSocket = datagramSocket;
+		initiateHMAC();
+	}
+
+	private void initiateHMAC() throws Exception {
+		Properties preSharedHMAC = new Properties();
+		preSharedHMAC.load(new FileInputStream(PRESHARED_CONFIG_FILE));
+		String hmacKey = preSharedHMAC.getProperty(addr.toString().split("/")[1].replace(":","-"));
+
+		hMacHS = Mac.getInstance("HmacSHA256");
+		Key hMacKey = new SecretKeySpec(hmacKey.getBytes(), "HmacSHA256");
+		hMacHS.init(hMacKey);
 	}
 
 	private void retrieveChosenAlgorithm(String cs) throws Exception {
@@ -90,11 +102,20 @@ public class HandshakeDH implements Handshake {
 		oos.write(signature);
 	}
 
-	private void writeHash(ObjectOutputStream oos, byte[] message) throws Exception {
+	private void writeHMac(ObjectOutputStream oos, byte[] message) throws Exception {
+		/*
+		HASH
 		MessageDigest md = MessageDigest.getInstance("SHA-256");
 		byte[] messageHash = md.digest(message);
 		oos.write(messageHash.length);
 		oos.write(messageHash);
+		*/
+
+		// HMAC
+		hMac.update(message);
+		byte[] integrityData = hMac.doFinal();
+		oos.write(integrityData.length);
+		oos.write(integrityData);
 	}
 
 
@@ -243,8 +264,8 @@ public class HandshakeDH implements Handshake {
 		writeDigitalSignature(oos, message2);
 
 		byte[] messageTotal = bos.toByteArray();
-		// hash
-		writeHash(oos, messageTotal);
+		// HMAC
+		writeHMac(oos, messageTotal);
 
 		byte[] data = bos.toByteArray();
 		DatagramPacket packet = new DatagramPacket(data, data.length, addr);
@@ -303,6 +324,8 @@ public class HandshakeDH implements Handshake {
 			throw new Exception("Invalid signature! {Yserver || P || G} != Sig_kprivServer(Yserver || P || G)");
 		}
 
+		/*
+		TODO !!!
 		// Hash
 		int hashLength = inputStream.readInt();
 		MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -318,7 +341,7 @@ public class HandshakeDH implements Handshake {
 		if(!messageHash.equals(hash)) {
 			throw new Exception("Message content have been changed!");
 		}
-
+		*/
 
 		// -------------------------
 		// Box - computations
@@ -357,7 +380,7 @@ public class HandshakeDH implements Handshake {
 
 		byte[] messageTotal = bos.toByteArray();
 		// hash
-		writeHash(oos, messageTotal);
+		writeHMac(oos, messageTotal);
 
 		byte[] data = bos.toByteArray();
 		DatagramPacket packet = new DatagramPacket(data, data.length, addr);
@@ -403,6 +426,8 @@ public class HandshakeDH implements Handshake {
 			throw new Exception("Invalid signature! {Yserver} != Sig_kprivServer(Yserver)");
 		}
 
+		/*
+		TODO
 		// Hash
 		int hashLength = inputStream.readInt();
 		MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -417,6 +442,7 @@ public class HandshakeDH implements Handshake {
 		if(!messageHash.equals(hash)) {
 			throw new Exception("Message content have been changed!");
 		}
+		 */
 
 
 		// -------------------------

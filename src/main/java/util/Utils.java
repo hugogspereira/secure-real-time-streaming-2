@@ -13,6 +13,7 @@ public class Utils {
 	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt";
 	public static final String PATH_TO_SERVER_CONFIG = "src/main/java/hjStreamServer/stream-cryptoconfig.txt";
 	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties";
+	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties";
 	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties";
 
 	public static String toHex(byte[] data, int length) {
