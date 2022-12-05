@@ -15,9 +15,13 @@ import java.net.DatagramSocket;
 import java.net.SocketAddress;
 import java.security.*;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.X509Certificate;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Properties;
 import static util.Utils.*;
 
@@ -76,7 +80,8 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private void writeCertificate(ObjectOutputStream oos) throws Exception {
-		Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
+
+		Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE + fromClassName, password, fromClassName);
 		int certificateLength = certificate.getEncoded().length;
 		oos.write(certificateLength);
 		oos.writeObject(certificate);
@@ -292,7 +297,9 @@ public class HandshakeDH implements Handshake {
 		// Certificate
 		int certLength = inputStream.readInt();
 		byte[] certData = inputStream.readNBytes(certLength);
-		PublicKey publicKeyBox = CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certData)).getPublicKey(); // TODO - Validar o certificado
+		X509Certificate cert = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certData));
+		validateCertificate(cert);
+		PublicKey publicKeyBox = cert.getPublicKey();
 
 		// Ybox
 		int yBoxLength = inputStream.readInt();
@@ -356,6 +363,7 @@ public class HandshakeDH implements Handshake {
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 	}
 
+	
 	private void sendSecondMessageHS() throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -364,7 +372,7 @@ public class HandshakeDH implements Handshake {
 		int ciphersuitesLength = ciphersuiteRTSP.length();
 		oos.write(ciphersuitesLength);
 		oos.write(ciphersuiteRTSP.getBytes());
-
+		
 		// Certificate
 		writeCertificate(oos);
 
@@ -372,7 +380,7 @@ public class HandshakeDH implements Handshake {
 		int dhParamKeyLen = keysDH.getPublic().getEncoded().length;
 		oos.write(dhParamKeyLen);
 		oos.writeObject(keysDH.getPublic());
-
+		
 		// Create the message that server will sign
 		byte[] message2 = keysDH.getPublic().getEncoded();
 		// Signature
@@ -381,38 +389,40 @@ public class HandshakeDH implements Handshake {
 		byte[] messageTotal = bos.toByteArray();
 		// hash
 		writeHMac(oos, messageTotal);
-
+		
 		byte[] data = bos.toByteArray();
 		DatagramPacket packet = new DatagramPacket(data, data.length, addr);
 		datagramSocket.send(packet);
 	}
-
+	
 	private void receiveSecondMessageHS(DatagramSocket inSocket) throws Exception {
 		DatagramPacket inPacket;
 		byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
-
+		
 		inPacket = new DatagramPacket(buffer, buffer.length);
 		inSocket.receive(inPacket);
-
+		
 		DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
-
+		
 		// Ciphersuite escolhida
 		int ciphersuiteLength = inputStream.readInt();
 		byte[] csData = inputStream.readNBytes(ciphersuiteLength);
 		String cs = new String(csData);
 		retrieveChosenAlgorithm(cs);
-
+		
 		// certificate
 		int certLength = inputStream.readInt();
 		byte[] certData = inputStream.readNBytes(certLength);
-		PublicKey publicKeyServer = CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certData)).getPublicKey(); // TODO - Validar o certificado
-
+		X509Certificate cert = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certData));
+		validateCertificate(cert);
+		PublicKey publicKeyServer = cert.getPublicKey();
+		
 		// Yserver
 		int yServerLength = inputStream.readInt();
 		byte[] yServer = inputStream.readNBytes(yServerLength);
 		PublicKey serverPubKey = KeyFactory.getInstance(diffieHellman, "BC").generatePublic(new X509EncodedKeySpec(yServer));  // TODO
-
-
+		
+		
 		// Signature
 		int signatureLength = inputStream.readInt();
 		Cipher cipher = Cipher.getInstance(digitalSignature);
@@ -421,28 +431,28 @@ public class HandshakeDH implements Handshake {
 		// Byte Arrays that will be compared to see if its everything fine
 		byte[] signedBytes = inputStream.readNBytes(signatureLength);
 		byte[] dataSigned = cipher.doFinal(signedBytes);
-
+		
 		if(!yServer.equals(dataSigned)) {
 			throw new Exception("Invalid signature! {Yserver} != Sig_kprivServer(Yserver)");
 		}
-
+		
 		// HMAC
 		int hmacLength = inputStream.readInt();
-
+		
 		// Generate the bytes
 		byte[] messageTotal = getBytesOfSecondMessage(ciphersuiteLength,csData,certLength,certData,yServerLength,yServer,signatureLength,signedBytes);
-
+		
 		// Byte Arrays that will be compared to see if it is everything fine
 		hMac.update(messageTotal);
 		byte[] messageHMAC = hMac.doFinal();
 		byte[] hmac = inputStream.readNBytes(hmacLength);
-
+		
 		if(!messageHMAC.equals(hmac)) {
 			// MessageDigest.isEqual(messageHMAC, hmac)
 			throw new Exception("Message content have been changed!");
 		}
-
-
+		
+		
 		// -------------------------
 		// Server - computations
 		// -------------------------
@@ -455,15 +465,38 @@ public class HandshakeDH implements Handshake {
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 	}
-
+	
 	private void sendThirdMessageHS() {
 		// TODO
 	}
-
+	
 	private void receiveThirdMessageHS(DatagramSocket inSocket) {
 		// TODO
 	}
+	
+	/**
+	 * validades certificate by verifing it and chicking date
+	 * @param cert - certificate being validated
+	 * @throws Exception
+	 */
+	private void validateCertificate(X509Certificate cert) throws Exception {
+		try {		
+			Date currentDate = new Date();
+			cert.checkValidity(currentDate);
+			if(fromClassName.equals("hjBox"))
+				cert.verify(Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, "boxkeys").getPublicKey());
+			else
+				cert.verify(Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, "serverkeys").getPublicKey()); 
 
+			} catch (CertificateNotYetValidException e){
+				throw new CertificateNotYetValidException("Certificate not in valid date!!!");
+			} catch (SignatureException e) {
+				throw new SignatureException("Not the right key!!!");
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	}
 	private String chooseCommonCipher(String[] boxCiphersuites, String[] readCiphersuites) throws Exception {
 		int comparator;
 		for (int i = 0; i < readCiphersuites.length; i++) {
