@@ -22,14 +22,21 @@ public class SafeDatagramSocket {
     // -----------------------------------------------------
 
 
+    // HJSTREAMSERVER
     public SafeDatagramSocket(String className, String password, SocketAddress addr) throws Exception {
         this.datagramSocket = new DatagramSocket();
 
-        handshakeCreation(datagramSocket, className, password, addr);
+        Properties properties = new Properties();
+        properties.load(new FileInputStream(SERVER_CONFIG_FILE));
+        String[] addrServer = checkProperty(properties, "remote").split(":");
+        SocketAddress addrServerSA = new InetSocketAddress(addrServer[0], Integer.parseInt(addrServer[1]));
+
+        handshakeCreation(datagramSocket, className, password, addrServerSA, addr);
         handshake.createServerHandshake(new DatagramSocket());
     }
 
-    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr) throws Exception {      // TODO - Suposto ser multicast ???
+    //HJBOX
+    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr, String addressServer) throws Exception {      // TODO - Suposto ser multicast ???
         if(addr.getAddress().isMulticastAddress()){
             MulticastSocket datagramSocket = new MulticastSocket(addr.getPort());
             datagramSocket.joinGroup(addr, null); 
@@ -39,11 +46,14 @@ public class SafeDatagramSocket {
             this.datagramSocket = new DatagramSocket();
         }
 
-        handshakeCreation(datagramSocket, className, password, addr);
+        String[] addrServer = addressServer.split(":");
+        SocketAddress addrServerSA = new InetSocketAddress(addrServer[0], Integer.parseInt(addrServer[1]));
+
+        handshakeCreation(datagramSocket, className, password, addr, addrServerSA);
         handshake.createBoxHandshake(inSocket);
     }
 
-    private void handshakeCreation(DatagramSocket datagramSocket, String className, String password, SocketAddress addr) throws Exception {
+    private void handshakeCreation(DatagramSocket datagramSocket, String className, String password, SocketAddress addr, SocketAddress addrToSend) throws Exception {
         Properties properties = new Properties();
         properties.load(new FileInputStream(HS_CONFIG_FILE));
         String digitalSignature = checkProperty(properties, DIGITAL_SIGNATURE);
@@ -54,7 +64,7 @@ public class SafeDatagramSocket {
             throw new Exception("Digital signatures option is not defined on the config file");
         }
         else if(diffieHellman != null) {
-            handshake = new HandshakeDH(datagramSocket, digitalSignature, diffieHellman, className, password, addr);
+            handshake = new HandshakeDH(datagramSocket, digitalSignature, diffieHellman, className, password, addr, addrToSend);
         }
         else if(secureEnvelope != null) {
             handshake = new HandshakeSE();  // TODO - Secure Envelopes

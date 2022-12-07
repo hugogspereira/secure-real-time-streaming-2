@@ -16,6 +16,8 @@ public class Utils {
 	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties";
 	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties";
 
+	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties";
+
 	public static String toHex(byte[] data, int length) {
 		StringBuffer buf = new StringBuffer();
 		for (int i = 0; i != length; i++) {
@@ -31,9 +33,9 @@ public class Utils {
 		return toHex(data, data.length);
 	}
 
-	public static DHParameterSpec generateDHParameters() throws NoSuchAlgorithmException, NoSuchProviderException, InvalidParameterSpecException {
+	public static DHParameterSpec generateDHParameters(String keySize) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidParameterSpecException {
 		AlgorithmParameterGenerator paramsGenerator = AlgorithmParameterGenerator.getInstance("DH", "BC");
-		paramsGenerator.init(2048);
+		paramsGenerator.init(Integer.parseInt(keySize));
 		AlgorithmParameters params = paramsGenerator.generateParameters();
 		return (DHParameterSpec) params.getParameterSpec(DHParameterSpec.class);
 	}
@@ -50,20 +52,20 @@ public class Utils {
 		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 		keystore.load(is, password.toCharArray());
 
-		Key key = keystore.getKey("boxkeys", password.toCharArray());
+		Key key = keystore.getKey(aliasEntry.toLowerCase(), password.toCharArray());
 		if (key instanceof PrivateKey) {
-			return keystore.getCertificate("boxkeys");
+			return keystore.getCertificate(aliasEntry.toLowerCase());
 		}
 		throw new Exception("unable to retrieve certificate from keystore!");
 	}
 
 	public static PrivateKey retrievePrivateKeyFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception { // TODO
-		FileInputStream is = new FileInputStream(PATH_TO_KEYSTORE+keystoreName);
+		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
 
 		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 		keystore.load(is, password.toCharArray());
 
-		Key key = keystore.getKey(aliasEntry, password.toCharArray());
+		Key key = keystore.getKey(aliasEntry.toLowerCase(), password.toCharArray());
 		if (key instanceof PrivateKey) {
 			return (PrivateKey) key;
 		}

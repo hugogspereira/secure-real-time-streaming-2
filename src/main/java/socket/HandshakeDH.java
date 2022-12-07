@@ -29,6 +29,7 @@ public class HandshakeDH implements Handshake {
 
 	private static final String HMAC_ALGORITHM = "HmacSHA256";
 	private SocketAddress addr;
+	private SocketAddress addrToSend;
 	private DatagramSocket datagramSocket;
 	private String fromClassName;
 	private String password;
@@ -42,20 +43,27 @@ public class HandshakeDH implements Handshake {
 	private Mac hMac; // for the symmetric encryption
 	private Mac hMacHS; // for the HS
 
-	public HandshakeDH(DatagramSocket datagramSocket, String digitalSignature, String diffieHellman, String className, String password, SocketAddress addr) throws Exception {
+	public HandshakeDH(DatagramSocket datagramSocket, String digitalSignature, String diffieHellman, String className, String password, SocketAddress addr, SocketAddress addrToSend) throws Exception {
 		this.digitalSignature = digitalSignature;
 		this.diffieHellman = diffieHellman;
 		this.fromClassName = className;
 		this.password = password;
 		this.addr = addr;
 		this.datagramSocket = datagramSocket;
+		this.addrToSend = addrToSend;
 		initiateHMAC();
 	}
 
 	private void initiateHMAC() throws Exception {
 		Properties preSharedHMAC = new Properties();
 		preSharedHMAC.load(new FileInputStream(PRESHARED_CONFIG_FILE));
-		String hmacKey = preSharedHMAC.getProperty(addr.toString().split("/")[1].replace(":","-"));
+		String hmacKey;
+		if(fromClassName.equals("hjStreamServer")) {
+			hmacKey = preSharedHMAC.getProperty(addrToSend.toString().split("/")[1].replace(":","-"));
+		}
+		else {
+			hmacKey = preSharedHMAC.getProperty(addr.toString().split("/")[1].replace(":","-"));
+		}
 
 		hMacHS = Mac.getInstance(HMAC_ALGORITHM);
 		Key hMacKey = new SecretKeySpec(hmacKey.getBytes(), HMAC_ALGORITHM);
@@ -99,11 +107,18 @@ public class HandshakeDH implements Handshake {
 		oos.writeObject(g);
 	}
 
-	private void writeDigitalSignature(ObjectOutputStream oos, byte[] messageToSign) throws Exception {
-		PrivateKey privateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE+ fromClassName, password, fromClassName); // TODO
-		Cipher cipher = Cipher.getInstance(digitalSignature);
-		cipher.init(Cipher.ENCRYPT_MODE, privateKey);
-		byte[] signature = cipher.doFinal(messageToSign);
+	private void writeDigitalSignature(ObjectOutputStream oos, byte[] message) throws Exception {
+		PrivateKey privateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE, password, fromClassName); // TODO
+
+		//HASH
+		MessageDigest md = MessageDigest.getInstance("SHA-512");
+		byte[] messageToSign = md.digest(message);
+
+
+		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
+		sig.initSign(privateKey);
+		sig.update(messageToSign);
+		byte[] signature = sig.sign();
 		oos.write(signature.length);
 		oos.write(signature);
 	}
@@ -118,8 +133,8 @@ public class HandshakeDH implements Handshake {
 		*/
 
 		// HMAC
-		hMac.update(message);
-		byte[] integrityData = hMac.doFinal();
+		hMacHS.update(message);
+		byte[] integrityData = hMacHS.doFinal();
 		oos.write(integrityData.length);
 		oos.write(integrityData);
 	}
@@ -237,6 +252,7 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private void sendFirstMessageHS() throws Exception {
+		System.out.println("vou enviar 1 MSG");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -247,8 +263,12 @@ public class HandshakeDH implements Handshake {
 		writeCertificate(oos);
 
 		// DH Parameters Generation
-		DHParameterSpec dhParams = Utils.generateDHParameters();
-		keysDH = Utils.generateDHKeys(diffieHellman, dhParams);
+		String[] dhs = diffieHellman.split("-");
+		String dh = dhs[0];
+		String dhKeys = dhs[1];
+
+		DHParameterSpec dhParams = Utils.generateDHParameters(dhKeys);
+		keysDH = Utils.generateDHKeys(dh, dhParams);
 
 		// PublicNum Box
 		PublicKey publicKeyDH = keysDH.getPublic();
@@ -273,16 +293,20 @@ public class HandshakeDH implements Handshake {
 		writeHMac(oos, messageTotal);
 
 		byte[] data = bos.toByteArray();
-		DatagramPacket packet = new DatagramPacket(data, data.length, addr);
+		DatagramPacket packet = new DatagramPacket(data, data.length, addrToSend);
 		datagramSocket.send(packet);
+
+		System.out.println("ENVIEI 1 MSG");
 	}
 
 	private void receiveFirstMessageHS(DatagramSocket inSocket) throws Exception {
+		System.out.println("RECEBER 1 MSG");
 		DatagramPacket inPacket;
 		byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
 
-		inPacket = new DatagramPacket(buffer, buffer.length);
+		inPacket = new DatagramPacket(buffer, buffer.length, addr);
 		inSocket.receive(inPacket);
+		System.out.println("Vou avançar");
 
 		DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
 
@@ -361,10 +385,12 @@ public class HandshakeDH implements Handshake {
 		generateSymmetricKey(symmetricAndHmacKey, cipherMode, Cipher.ENCRYPT_MODE);
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
+		System.out.println("RECEBI 1 MSG");
 	}
 
 	
 	private void sendSecondMessageHS() throws Exception {
+		System.out.println("VOU ENVIAR 2 MSG");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -391,16 +417,19 @@ public class HandshakeDH implements Handshake {
 		writeHMac(oos, messageTotal);
 		
 		byte[] data = bos.toByteArray();
-		DatagramPacket packet = new DatagramPacket(data, data.length, addr);
+		DatagramPacket packet = new DatagramPacket(data, data.length, addrToSend);
 		datagramSocket.send(packet);
+		System.out.println("ENVIEI 2 MSG");
 	}
 	
 	private void receiveSecondMessageHS(DatagramSocket inSocket) throws Exception {
+		System.out.println("Vou receber 2 MSG");
 		DatagramPacket inPacket;
 		byte[] buffer = new byte[10*1024]; // TODO - SIZE ???
 		
-		inPacket = new DatagramPacket(buffer, buffer.length);
+		inPacket = new DatagramPacket(buffer, buffer.length, addr);
 		inSocket.receive(inPacket);
+		System.out.println("Vou avançar");
 		
 		DataInputStream inputStream = new DataInputStream(new ByteArrayInputStream(inPacket.getData()));
 		
@@ -483,19 +512,15 @@ public class HandshakeDH implements Handshake {
 		try {		
 			Date currentDate = new Date();
 			cert.checkValidity(currentDate);
-			if(fromClassName.equals("hjBox"))
-				cert.verify(Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, "boxkeys").getPublicKey());
-			else
-				cert.verify(Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, "serverkeys").getPublicKey()); 
-
-			} catch (CertificateNotYetValidException e){
-				throw new CertificateNotYetValidException("Certificate not in valid date!!!");
-			} catch (SignatureException e) {
-				throw new SignatureException("Not the right key!!!");
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			cert.verify(Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, fromClassName.toLowerCase()).getPublicKey());
+		} catch (CertificateNotYetValidException e){
+			throw new CertificateNotYetValidException("Certificate not in valid date!!!");
+		} catch (SignatureException e) {
+			throw new SignatureException("Not the right key!!!");
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	private String chooseCommonCipher(String[] boxCiphersuites, String[] readCiphersuites) throws Exception {
 		int comparator;

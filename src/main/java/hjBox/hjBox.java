@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.io.InputStream;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import socket.DatagramSocketCreator;
 import socket.SafeDatagramSocket;
 import crypto.PBEFileDecryption;
@@ -49,13 +50,16 @@ import crypto.PBEFileDecryption;
 public class hjBox {
 
     public static void main(String[] args) throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
+        Security.addProvider(new BouncyCastlePQCProvider());
 
         InputStream inputStream = PBEFileDecryption.decryptFiles(args[2], args[0]); // <password>  <config>
-        if (args.length != 3) {
+        if (args.length != 4) {
             /*
                 src/main/java/hjBox/config.properties.encrypted
-                src/main/java/hjBox/box-cryptoconfig.txt  -> no need
+                src/main/java/hjBox/box-cryptoconfig.txt           -> no need
                 omsqptaesdfommptvsnfiocmlesrfoqppms
+                236.16.20.31:9999                                  -> endereço do server
 		    */
             System.out.println("Erro, usar: myBox <config> <box-config> <password>");
             System.err.println("Configuration file not found!");
@@ -70,7 +74,7 @@ public class hjBox {
         Set<SocketAddress> outSocketAddressSet = Arrays.stream(destinations.split(",")).map(s -> parseSocketAddress(s)).collect(Collectors.toSet());
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
-        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress);
+        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress, args[3]);
 
         byte[] buffer = new byte[5 * 1024];
         DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = -1; String movieName = "";
