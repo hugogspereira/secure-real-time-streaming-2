@@ -49,7 +49,6 @@ import crypto.PBEFileDecryption;
 public class hjBox {
 
     public static void main(String[] args) throws Exception {
-        Security.addProvider(new BouncyCastleProvider());
 
         InputStream inputStream = PBEFileDecryption.decryptFiles(args[2], args[0]); // <password>  <config>
         if (args.length != 3) {
