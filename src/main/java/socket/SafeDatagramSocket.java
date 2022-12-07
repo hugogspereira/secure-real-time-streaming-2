@@ -26,7 +26,7 @@ public class SafeDatagramSocket {
         this.datagramSocket = new DatagramSocket();
 
         handshakeCreation(datagramSocket, className, password, addr);
-        handshake.createServerHandshake(new DatagramSocket(addr));
+        handshake.createServerHandshake(new DatagramSocket());
     }
 
     public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr) throws Exception {      // TODO - Suposto ser multicast ???

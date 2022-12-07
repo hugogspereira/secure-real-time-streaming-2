@@ -81,7 +81,7 @@ public class HandshakeDH implements Handshake {
 
 	private void writeCertificate(ObjectOutputStream oos) throws Exception {
 
-		Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE + fromClassName, password, fromClassName);
+		Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, fromClassName);
 		int certificateLength = certificate.getEncoded().length;
 		oos.write(certificateLength);
 		oos.writeObject(certificate);

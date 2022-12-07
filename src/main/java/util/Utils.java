@@ -45,14 +45,14 @@ public class Utils {
 	}
 
 	public static Certificate retrieveCertificateFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception {
-		FileInputStream is = new FileInputStream(PATH_TO_KEYSTORE+keystoreName);
+		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
 
 		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 		keystore.load(is, password.toCharArray());
 
-		Key key = keystore.getKey(aliasEntry, password.toCharArray());
+		Key key = keystore.getKey("boxkeys", password.toCharArray());
 		if (key instanceof PrivateKey) {
-			return keystore.getCertificate(aliasEntry);
+			return keystore.getCertificate("boxkeys");
 		}
 		throw new Exception("unable to retrieve certificate from keystore!");
 	}

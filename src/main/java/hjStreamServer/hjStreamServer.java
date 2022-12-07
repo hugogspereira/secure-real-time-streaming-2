@@ -56,6 +56,7 @@ public class hjStreamServer {
 
 			// send packet (with a frame payload)
 			s.send(p);
+			System.out.println("+");
 		}
 		s.printServerConfigStatus(args[0], count, afs, (double)(System.nanoTime()-t0)/1000000000);
 		s.send(new DatagramPacket(SafeDatagramSocket.CONTROL_MESSAGE, SafeDatagramSocket.CONTROL_MESSAGE.length, addr));

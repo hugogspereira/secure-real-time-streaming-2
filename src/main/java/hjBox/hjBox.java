@@ -35,11 +35,13 @@ package hjBox;
 
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.security.Security;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.io.InputStream;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import socket.DatagramSocketCreator;
 import socket.SafeDatagramSocket;
 import crypto.PBEFileDecryption;
@@ -47,6 +49,7 @@ import crypto.PBEFileDecryption;
 public class hjBox {
 
     public static void main(String[] args) throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
 
         InputStream inputStream = PBEFileDecryption.decryptFiles(args[2], args[0]); // <password>  <config>
         if (args.length != 3) {
@@ -85,6 +88,7 @@ public class hjBox {
                 outSocket.send(p, outSocketAddress);
             }
             count += 1; afs += inPacket.getLength();
+            System.out.println("*");
         }
         outSocket.printBoxConfigStatus(movieName, count, afs, (double)(System.nanoTime()-t0)/1000000000);
     }

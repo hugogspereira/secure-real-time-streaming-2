@@ -61,10 +61,11 @@ public class ConfigReader {
             }
             scan.close();
 
-            String aux = new StringBuilder(target).insert(0, "<").append(">").toString();
+            String auxInit = new StringBuilder(target).insert(0, "<").append(">").toString();
+            String auxFinal = new StringBuilder(target).insert(0, "</").append(">").toString();
             int firstIndex, lastIndex;
-            firstIndex = lines.indexOf(aux);
-            lastIndex = lines.lastIndexOf(aux);
+            firstIndex = lines.indexOf(auxInit);
+            lastIndex = lines.lastIndexOf(auxFinal);
 
             if(firstIndex == -1 || lastIndex == firstIndex) {
                 throw new Exception("target not found");
