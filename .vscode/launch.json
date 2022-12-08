@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Launch EncryptMovie",
+            "request": "launch",
+            "mainClass": "crypto.EncryptMovie",
+            "projectName": "SRSC-Proj2_dd5cc92e"
+        },
+        {
+            "type": "java",
+            "name": "Launch PBEFileEncryption",
+            "request": "launch",
+            "mainClass": "crypto.PBEFileEncryption",
+            "projectName": "SRSC-Proj2_dd5cc92e"
+        },
+        {
+            "type": "java",
+            "name": "Launch hjBox",
+            "request": "launch",
+            "mainClass": "hjBox.hjBox",
+            "args": "",
+            "projectName": "SRSC-Proj2_dd5cc92e"
+        },
+        {
+            "type": "java",
+            "name": "Launch hjStreamServer",
+            "request": "launch",
+            "mainClass": "hjStreamServer.hjStreamServer",
+            "projectName": "SRSC-Proj2_dd5cc92e"
+        },
+        {
+            "type": "java",
+            "name": "Launch KeyStoreGetKey",
+            "request": "launch",
+            "mainClass": "keystore.KeyStoreGetKey",
+            "projectName": "SRSC-Proj2_dd5cc92e"
+        }
+    ]
+}
