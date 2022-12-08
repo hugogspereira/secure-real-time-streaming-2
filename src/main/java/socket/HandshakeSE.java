@@ -2,7 +2,6 @@ package socket;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
-import java.net.DatagramSocket;
 
 public class HandshakeSE implements Handshake {
 
@@ -17,12 +16,12 @@ public class HandshakeSE implements Handshake {
 	}
 
 	@Override
-	public void createBoxHandshake(DatagramSocket inSocket) throws Exception {
+	public void createBoxHandshake() throws Exception {
 
 	}
 
 	@Override
-	public void createServerHandshake(DatagramSocket inSocket) throws Exception {
+	public void createServerHandshake() throws Exception {
 
 	}
 }
