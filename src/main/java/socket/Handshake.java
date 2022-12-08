@@ -2,7 +2,6 @@ package socket;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
-import java.net.DatagramSocket;
 
 public interface Handshake {
 
@@ -11,9 +10,9 @@ public interface Handshake {
 
 	Mac getHMac();
 
-	void createBoxHandshake(DatagramSocket inSocket) throws Exception;
+	void createBoxHandshake() throws Exception;
 
-	void createServerHandshake(DatagramSocket inSocket) throws Exception;
+	void createServerHandshake() throws Exception;
 
 
 
