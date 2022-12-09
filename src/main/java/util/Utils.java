@@ -66,7 +66,7 @@ public class Utils {
 		keystore.load(is, password.toCharArray());
 
 		Certificate crt = keystore.getCertificate("ca");
-		System.out.println(crt.toString());
+	
 		if(crt != null){
 			return crt;
 		}
