@@ -59,6 +59,20 @@ public class Utils {
 		throw new Exception("unable to retrieve certificate from keystore!");
 	}
 
+	public static Certificate retriveCACertificate(String keystoreName, String password, String aliasEntry)throws Exception {
+		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
+
+		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+		keystore.load(is, password.toCharArray());
+
+		Certificate crt = keystore.getCertificate("ca");
+		System.out.println(crt.toString());
+		if(crt != null){
+			return crt;
+		}
+		throw new Exception("unable to retrieve certificate from keystore!");
+	}
+
 	public static PrivateKey retrievePrivateKeyFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception { // TODO
 		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
 
