@@ -1,5 +1,6 @@
 package socket;
 
+import crypto.DecryptMovie;
 import util.*;
 import java.io.*;
 import java.net.*;
@@ -8,10 +9,6 @@ import java.util.Properties;
 import static util.Utils.*;
 
 public class SafeDatagramSocket {
-
-    private static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
-    private static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
-    private static final String SECURE_ENVELOPE = "SECURE_ENVELOPE";
 
     public static final byte[] CONTROL_MESSAGE = new byte[1];
     public static final String DEFAULT_ADDRESS = "0.0.0.0:0000";
@@ -39,7 +36,7 @@ public class SafeDatagramSocket {
     }
 
     //HJBOX
-    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr, String addressServer) throws Exception {
+    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr, String addressServer, String movieName) throws Exception {
         String[] addrServer = addressServer.split(":");
         SocketAddress addrServerSA = new InetSocketAddress(addrServer[0], Integer.parseInt(addrServer[1]));
 
@@ -57,7 +54,7 @@ public class SafeDatagramSocket {
         Socket s = new Socket("localhost", 9999);
 
         handshakeCreation(s, className, password, addr, addrServerSA);
-        handshake.createBoxHandshake();
+        handshake.createBoxHandshake(movieName);
     }
 
     private void handshakeCreation(Socket s, String className, String password, SocketAddress addr, SocketAddress addrToSend) throws Exception {
@@ -151,4 +148,7 @@ public class SafeDatagramSocket {
         */
     }
 
+    public DataInputStream decryptMovie(String encryptedConfig, String password) throws Exception {
+        return (new DecryptMovie(handshake.getMovieName(), encryptedConfig, password).getDataInputStream());
+    }
 }

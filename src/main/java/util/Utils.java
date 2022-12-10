@@ -15,8 +15,10 @@ public class Utils {
 	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties";
 	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties";
 	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties";
-
 	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties";
+	public static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
+	public static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
+	public static final String SECURE_ENVELOPE = "SECURE_ENVELOPE";
 
 	public static String toHex(byte[] data, int length) {
 		StringBuffer buf = new StringBuffer();

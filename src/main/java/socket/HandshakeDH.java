@@ -1,6 +1,7 @@
 package socket;
 
 import util.ConfigReader;
+import util.CryptoStuff;
 import util.Utils;
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
@@ -27,20 +28,18 @@ import static util.Utils.*;
 public class HandshakeDH implements Handshake {
 
 	private static final String HMAC_ALGORITHM = "HmacSHA256";
-	private SocketAddress addr;
-	private SocketAddress addrToSend;
+
+	private SocketAddress addr, addrToSend;
 	private OutputStream out;
 	private InputStream in;
-	private String fromClassName;
-	private String password;
+	private String fromClassName, movieName, password;
 	// ---------------------------------------------
-	private String digitalSignature;
-	private String diffieHellman;
+	private String digitalSignature, diffieHellman;
 	private KeyPair keysDH;
 	// ---------------------------------------------
-	private Cipher ciphersuite;
-	private String ciphersuiteRTSP;
+	private Cipher ciphersuite; // for the symmetric encryption
 	private Mac hMac; // for the symmetric encryption
+	private String ciphersuiteRTSP; // for the HS
 	private Mac hMacHS; // for the HS
 
 	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String password, SocketAddress addr, SocketAddress addrToSend) throws Exception {
@@ -127,10 +126,20 @@ public class HandshakeDH implements Handshake {
 		oos.flush();
 	}
 
-	private void writeHMac(ObjectOutputStream oos, byte[] message) throws Exception {
+	private void writeHMacHS(ObjectOutputStream oos, byte[] message) throws Exception {
 		// HMAC
 		hMacHS.update(message);
 		byte[] integrityData = hMacHS.doFinal();
+		oos.writeInt(integrityData.length);
+		oos.flush();
+		oos.write(integrityData);
+		oos.flush();
+	}
+
+	private void writeHMac(ObjectOutputStream oos, byte[] message) throws Exception {
+		// HMAC
+		hMac.update(message);
+		byte[] integrityData = hMac.doFinal();
 		oos.writeInt(integrityData.length);
 		oos.flush();
 		oos.write(integrityData);
@@ -269,16 +278,22 @@ public class HandshakeDH implements Handshake {
 		return hMac;
 	}
 
-	public void createBoxHandshake() throws Exception {
+	@Override
+	public String getMovieName() {
+		return movieName;
+	}
+
+	public void createBoxHandshake(String movieName) throws Exception {
+		this.movieName = movieName;
 		sendFirstMessageHS();
 		receiveSecondMessageHS();
-		sendThirdMessageHS();
+		sendThirdMessageHS(movieName);
 	}
 
 	public void createServerHandshake() throws Exception {
 		receiveFirstMessageHS();
 		sendSecondMessageHS();
-		receiveThirdMessageHS();
+		this.movieName = receiveThirdMessageHS();
 	}
 
 	private void sendFirstMessageHS() throws Exception {
@@ -318,7 +333,7 @@ public class HandshakeDH implements Handshake {
 
 		byte[] messageTotal = bos.toByteArray();
 		// HMAC
-		writeHMac(oos, messageTotal);
+		writeHMacHS(oos, messageTotal);
 
 		byte[] data = bos.toByteArray();
 		out.write(data);
@@ -402,7 +417,7 @@ public class HandshakeDH implements Handshake {
 
 	
 	private void sendSecondMessageHS() throws Exception {
-		System.out.println("Vou enivar 2a msg");
+		System.out.println("Vou enviar 2a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -425,7 +440,7 @@ public class HandshakeDH implements Handshake {
 
 		byte[] messageTotal = bos.toByteArray();
 		// hash
-		writeHMac(oos, messageTotal);
+		writeHMacHS(oos, messageTotal);
 		
 		byte[] data = bos.toByteArray();
 		out.write(data);
@@ -435,7 +450,7 @@ public class HandshakeDH implements Handshake {
 	}
 	
 	private void receiveSecondMessageHS() throws Exception {
-		System.out.println("Vou receber 2 MSG");
+		System.out.println("Vou receber 2 msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -496,13 +511,57 @@ public class HandshakeDH implements Handshake {
 		System.out.println("---------------------");
 	}
 	
-	private void sendThirdMessageHS() throws Exception {
-		// TODO
+	private void sendThirdMessageHS(String movieName) throws Exception {
+		System.out.println("Vou enviar 3a msg");
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+		byte[] movieNameData = movieName.getBytes();
+		// Encrypted Message
+		byte[] movieNameEncrypted = movieNameData; //CryptoStuff.encrypt(movieNameData, movieNameData.length, ciphersuite, hMac); TODO
+
+		// movieName - control message
+		oos.writeInt(movieNameEncrypted.length);
+		oos.flush();
+		oos.write(movieNameEncrypted);
+		oos.flush();
+
+		// hash
+		writeHMac(oos, movieNameEncrypted);
+
+		out.write(bos.toByteArray());
+		System.out.println("Enviei 3a msg");
+		System.out.println("---------------------");
 	}
 	
-	private void receiveThirdMessageHS()  throws Exception {
-		// TODO
-		Thread.sleep(7500);  // just to have time for box to recover
+	private String receiveThirdMessageHS()  throws Exception {
+		System.out.println("Vou receber 3a msg");
+		DataInputStream is = new DataInputStream(in);
+		ObjectInputStream ois = new ObjectInputStream(is);
+
+		waitForTheSend();
+
+		int movieNameEncryptedLength = ois.readInt();
+		byte[] movieNameEncrypted = ois.readNBytes(movieNameEncryptedLength);
+		// Decrypted Message
+		byte[] movieNameData = movieNameEncrypted; //CryptoStuff.decrypt(movieNameEncrypted, movieNameEncrypted.length, ciphersuite, hMac); TODO
+
+		// HMAC
+		int hmacLength = ois.readInt();
+		byte[] hmacData = ois.readNBytes(hmacLength);
+
+		// Byte Arrays that will be compared to see if it is everything fine
+		hMac.update(movieNameEncrypted);
+		byte[] messageHMAC = hMac.doFinal();
+
+		if(!MessageDigest.isEqual(messageHMAC, hmacData)) {
+			throw new Exception("Message content have been changed!");
+		}
+
+		System.out.println(movieNameData);
+		System.out.println("Recebi 3a msg");
+		System.out.println("---------------------");
+		return new String(movieNameData);
 	}
 	
 	/**

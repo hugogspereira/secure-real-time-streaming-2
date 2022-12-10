@@ -10,10 +10,10 @@ public interface Handshake {
 
 	Mac getHMac();
 
-	void createBoxHandshake() throws Exception;
+	String getMovieName();
+
+	void createBoxHandshake(String movieName) throws Exception;
 
 	void createServerHandshake() throws Exception;
-
-
 
 }

@@ -16,7 +16,12 @@ public class HandshakeSE implements Handshake {
 	}
 
 	@Override
-	public void createBoxHandshake() throws Exception {
+	public String getMovieName() {
+		return null;
+	}
+
+	@Override
+	public void createBoxHandshake(String movieName) throws Exception {
 
 	}
 
