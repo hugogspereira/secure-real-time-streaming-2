@@ -59,7 +59,7 @@ public class Utils {
 		throw new Exception("unable to retrieve certificate from keystore!");
 	}
 
-	public static Certificate retriveCACertificate(String keystoreName, String password, String aliasEntry)throws Exception {
+	public static Certificate retrieveCACertificate(String keystoreName, String password, String aliasEntry)throws Exception {
 		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
 
 		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());

@@ -522,7 +522,7 @@ public class HandshakeDH implements Handshake {
 		try {		
 			Date currentDate = new Date();
 			cert.checkValidity(currentDate);
-			cert.verify(Utils.retriveCACertificate(PATH_TO_KEYSTORE, password, fromClassName).getPublicKey());
+			cert.verify(Utils.retrieveCACertificate(PATH_TO_KEYSTORE, password, fromClassName).getPublicKey());
 		} catch (CertificateNotYetValidException e){
 			throw new CertificateNotYetValidException("Certificate not in valid date!!!");
 		} catch (SignatureException e) {
