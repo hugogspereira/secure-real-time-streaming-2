@@ -252,8 +252,10 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private void waitForTheSend() throws Exception {
-		while(in.available() == 0) { }
-		System.out.println("recebi pacote - vou avançar");
+		while(in.available() == 0) {
+			// Meter thread sleep para n gastar cpu ?
+		}
+		System.out.println("*** recebi pacote - vou avançar ***");
 	}
 
 
@@ -280,7 +282,7 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private void sendFirstMessageHS() throws Exception {
-		System.out.println("vou enviar 1 MSG");
+		System.out.println("Vou enviar 1a msg");
 
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -321,12 +323,12 @@ public class HandshakeDH implements Handshake {
 		byte[] data = bos.toByteArray();
 		out.write(data);
 
-		System.out.println("ENVIEI 1 MSG "+data.length);
+		System.out.println("Enviei 1a msg");
 		System.out.println("---------------------");
 	}
 
 	private void receiveFirstMessageHS() throws Exception {
-		System.out.println("RECEBER 1 MSG");
+		System.out.println("Recebi 1a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -335,11 +337,9 @@ public class HandshakeDH implements Handshake {
 
 		// lista de ciphersuites
 		int ciphersuiteLength = ois.readInt();
-		System.out.println(ciphersuiteLength);
 		String[] boxCiphersuites = new String[ciphersuiteLength];
 		for(int i = 0; i < ciphersuiteLength; i++) {
 			boxCiphersuites[i] = ois.readUTF();
-			System.out.println(boxCiphersuites[i]);
 		}
 		Properties ciphersuitesProperties = new Properties();
 		ciphersuitesProperties.load(new FileInputStream(Utils.CIPHERSUITE_CONFIG_FILE));
@@ -347,12 +347,7 @@ public class HandshakeDH implements Handshake {
 
 		// Certificate
 		X509Certificate cert = (X509Certificate) ois.readObject();
-		try {  // TODO
-			validateCertificate(cert);
-		}
-		catch(Exception e) {
-			e.printStackTrace();
-		}
+		validateCertificate(cert);
 
 		PublicKey publicKeyBox = cert.getPublicKey();
 
@@ -401,13 +396,13 @@ public class HandshakeDH implements Handshake {
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 
-		System.out.println("RECEBI 1 MSG");
+		System.out.println("Recebi 1a msg");
 		System.out.println("---------------------");
 	}
 
 	
 	private void sendSecondMessageHS() throws Exception {
-		System.out.println("VOU ENVIAR 2 MSG");
+		System.out.println("Vou enivar 2a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -435,7 +430,7 @@ public class HandshakeDH implements Handshake {
 		byte[] data = bos.toByteArray();
 		out.write(data);
 
-		System.out.println("ENVIEI 2 MSG");
+		System.out.println("Enviei 2a msg");
 		System.out.println("---------------------");
 	}
 	
@@ -452,12 +447,8 @@ public class HandshakeDH implements Handshake {
 
 		// certificate
 		X509Certificate cert = (X509Certificate) ois.readObject();
-		try {  // TODO
-			validateCertificate(cert);
-		}
-		catch(Exception e) {
-			e.printStackTrace();
-		}
+		validateCertificate(cert);
+
 		PublicKey publicKeyServer = cert.getPublicKey();
 		
 		// Yserver
@@ -501,7 +492,7 @@ public class HandshakeDH implements Handshake {
 		generateSymmetricKey(symmetricAndHmacKey, cipherMode, Cipher.DECRYPT_MODE);
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
-		System.out.println("RECEBI 2 MSG");
+		System.out.println("Recebi 2a msg");
 		System.out.println("---------------------");
 	}
 	
