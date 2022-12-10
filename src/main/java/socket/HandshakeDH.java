@@ -8,6 +8,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+
 import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
@@ -364,6 +367,7 @@ public class HandshakeDH implements Handshake {
 		int signatureLength = ois.readInt();
 		byte[] signedBytes = ois.readNBytes(signatureLength);
 
+		Security.addProvider(new BouncyCastleProvider());
 		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
 		sig.initVerify(publicKeyBox);
 		if(sig.verify(signedBytes)) {
@@ -518,7 +522,7 @@ public class HandshakeDH implements Handshake {
 		try {		
 			Date currentDate = new Date();
 			cert.checkValidity(currentDate);
-			cert.verify(Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, fromClassName).getPublicKey());
+			cert.verify(Utils.retriveCACertificate(PATH_TO_KEYSTORE, password, fromClassName).getPublicKey());
 		} catch (CertificateNotYetValidException e){
 			throw new CertificateNotYetValidException("Certificate not in valid date!!!");
 		} catch (SignatureException e) {
