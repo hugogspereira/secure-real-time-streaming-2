@@ -564,7 +564,7 @@ public class HandshakeDH implements Handshake {
 		int comparator;
 		for (int i = 0; i < readCiphersuites.length; i++) {
 			for (int j = 0; j < boxCiphersuites.length; j++) {
-				comparator = readCiphersuites[i].compareTo(boxCiphersuites[i]);
+				comparator = readCiphersuites[i].compareTo(boxCiphersuites[j]);
 				if(comparator == 0) {
 					return readCiphersuites[i];
 				}
