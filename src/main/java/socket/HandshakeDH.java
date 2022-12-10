@@ -38,6 +38,7 @@ public class HandshakeDH implements Handshake {
 	private KeyPair keysDH;
 	// ---------------------------------------------
 	private Cipher ciphersuite; // for the symmetric encryption
+	private byte[] symmetricAndHmacKey; // data for the ciphersuite
 	private Mac hMac; // for the symmetric encryption
 	private String ciphersuiteRTSP; // for the HS
 	private Mac hMacHS; // for the HS
@@ -167,10 +168,11 @@ public class HandshakeDH implements Handshake {
 
 
 
-	private void generateSymmetricKey(byte[] symmetricAndHmacKey, String[] cipherMode, int mode) throws Exception {
+	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
 		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, Integer.parseInt(cipherMode[1])/Byte.SIZE);
 		ciphersuite = Cipher.getInstance(cipherMode[0]);
 		String modeCipher = cipherMode[0].split("/")[1];
+
 		IvParameterSpec ivSpec = null;
 		if(modeCipher.equals("CCM")) {
 			ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));   // 7 a 13 bytes
@@ -179,7 +181,19 @@ public class HandshakeDH implements Handshake {
 			// ...
 		}
 		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split("/")[0]);
-		ciphersuite.init(mode, secretKeySpec, ivSpec);
+		ciphersuite.init(mode1, secretKeySpec, ivSpec);
+
+		byte[] movieNameFinalData;
+		if(Cipher.DECRYPT_MODE == mode1) {
+			movieNameFinalData = CryptoStuff.decrypt(movieNameData, movieNameData.length, ciphersuite, hMac);
+		}
+		else { // Encrypt
+			movieNameFinalData = CryptoStuff.encrypt(movieNameData, movieNameData.length, ciphersuite, hMac);
+		}
+
+		ciphersuite.init(mode2, secretKeySpec, ivSpec);
+
+		return movieNameFinalData;
 	}
 
 	private void generateHMacKey(byte[] symmetricAndHmacKey, String[] cipherMode) throws Exception {
@@ -258,6 +272,14 @@ public class HandshakeDH implements Handshake {
 		auxOos.writeObject(g);
 		auxOos.flush();
 		return auxBos.toByteArray();
+	}
+
+	private byte[] getMovieNameEncrypted(byte[] movieNameData) throws Exception {
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
+	}
+
+	private byte[] getMovieNameDecrypted(byte[] movieNameEncrypted) throws Exception {
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
 	}
 
 	private void waitForTheSend() throws Exception {
@@ -404,10 +426,8 @@ public class HandshakeDH implements Handshake {
 		// -------------------------
 
 		String[] cipherMode = ciphersuiteRTSP.split("-");
-		// Generate the secret
-		byte[] symmetricAndHmacKey = generateSecretDHServer(p,g,boxPubKey);
-		// Parte vai para a chave simetrica
-		generateSymmetricKey(symmetricAndHmacKey, cipherMode, Cipher.ENCRYPT_MODE);
+		// Generate the secret - from where it will be extracted the symetric key and the HMAC key
+		symmetricAndHmacKey = generateSecretDHServer(p,g,boxPubKey);
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 
@@ -501,10 +521,8 @@ public class HandshakeDH implements Handshake {
 		// -------------------------
 
 		String[] cipherMode = ciphersuiteRTSP.split("-");
-		// Generate the secret
-		byte[] symmetricAndHmacKey = generateSecretDH(serverPubKey);
-		// Parte vai para a chave simetrica
-		generateSymmetricKey(symmetricAndHmacKey, cipherMode, Cipher.DECRYPT_MODE);
+		// Generate the secret - from where it will be extracted the symetric key and the HMAC key
+		symmetricAndHmacKey = generateSecretDH(serverPubKey);
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 		System.out.println("Recebi 2a msg");
@@ -518,7 +536,7 @@ public class HandshakeDH implements Handshake {
 
 		byte[] movieNameData = movieName.getBytes();
 		// Encrypted Message
-		byte[] movieNameEncrypted = movieNameData; //CryptoStuff.encrypt(movieNameData, movieNameData.length, ciphersuite, hMac); TODO
+		byte[] movieNameEncrypted = getMovieNameEncrypted(movieNameData);
 
 		// movieName - control message
 		oos.writeInt(movieNameEncrypted.length);
@@ -527,7 +545,7 @@ public class HandshakeDH implements Handshake {
 		oos.flush();
 
 		// hash
-		writeHMac(oos, movieNameEncrypted);
+		writeHMac(oos, movieNameData);
 
 		out.write(bos.toByteArray());
 		System.out.println("Enviei 3a msg");
@@ -541,24 +559,22 @@ public class HandshakeDH implements Handshake {
 
 		waitForTheSend();
 
-		int movieNameEncryptedLength = ois.readInt();
-		byte[] movieNameEncrypted = ois.readNBytes(movieNameEncryptedLength);
+		byte[] movieNameEncrypted = ois.readNBytes(ois.readInt());
 		// Decrypted Message
-		byte[] movieNameData = movieNameEncrypted; //CryptoStuff.decrypt(movieNameEncrypted, movieNameEncrypted.length, ciphersuite, hMac); TODO
+		byte[] movieNameData = getMovieNameDecrypted(movieNameEncrypted);
 
 		// HMAC
 		int hmacLength = ois.readInt();
 		byte[] hmacData = ois.readNBytes(hmacLength);
 
 		// Byte Arrays that will be compared to see if it is everything fine
-		hMac.update(movieNameEncrypted);
+		hMac.update(movieNameData);
 		byte[] messageHMAC = hMac.doFinal();
 
 		if(!MessageDigest.isEqual(messageHMAC, hmacData)) {
 			throw new Exception("Message content have been changed!");
 		}
 
-		System.out.println(movieNameData);
 		System.out.println("Recebi 3a msg");
 		System.out.println("---------------------");
 		return new String(movieNameData);
