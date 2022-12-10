@@ -9,9 +9,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
 import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
@@ -24,46 +22,58 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Properties;
 import static util.Utils.*;
+import static util.UtilsObjectManipulation.*;
+import static util.UtilsCertificateManipulation.*;
+import static util.UtilsDHManipulation.*;
 
 public class HandshakeDH implements Handshake {
 
 	private static final String HMAC_ALGORITHM = "HmacSHA256";
+	private static final String SHA_ALGORITHM = "SHA-512";
 
-	private SocketAddress addr, addrToSend;
-	private OutputStream out;
-	private InputStream in;
-	private String fromClassName, movieName, password;
+	private static final String CCM_MODE = "CCM";
+
+	private final SocketAddress addr, addrToSend;
+	private final OutputStream out;
+	private final InputStream in;
+	private final String fromClassName, certPassword;  // name to retrieve the certificate and the password
+	private String movieName;
 	// ---------------------------------------------
-	private String digitalSignature, diffieHellman;
+	private final String digitalSignature, diffieHellman;
 	private KeyPair keysDH;
+	private String ciphersuiteRTSP; // for the HS
+	private Mac hMacHS; // for the HS
 	// ---------------------------------------------
 	private Cipher ciphersuite; // for the symmetric encryption
 	private byte[] symmetricAndHmacKey; // data for the ciphersuite
 	private Mac hMac; // for the symmetric encryption
-	private String ciphersuiteRTSP; // for the HS
-	private Mac hMacHS; // for the HS
 
-	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String password, SocketAddress addr, SocketAddress addrToSend) throws Exception {
+
+	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend) throws Exception {
 		this.digitalSignature = digitalSignature;
 		this.diffieHellman = diffieHellman;
 		this.fromClassName = className;
-		this.password = password;
+		this.certPassword = certPassword;
+
 		this.addr = addr;
+		this.addrToSend = addrToSend;
+
 		this.out = socket.getOutputStream();
 		this.in = socket.getInputStream();
-		this.addrToSend = addrToSend;
+
 		initiateHMAC();
 	}
 
 	private void initiateHMAC() throws Exception {
 		Properties preSharedHMAC = new Properties();
 		preSharedHMAC.load(new FileInputStream(PRESHARED_CONFIG_FILE));
+
 		String hmacKey;
-		if(fromClassName.equals("hjStreamServer")) {
-			hmacKey = preSharedHMAC.getProperty(addrToSend.toString().split("/")[1].replace(":","-"));
+		if(fromClassName.equals(HJSTREAMSERVER)) {
+			hmacKey = preSharedHMAC.getProperty(getPropertyNameFromAddress(addrToSend));
 		}
 		else {
-			hmacKey = preSharedHMAC.getProperty(addr.toString().split("/")[1].replace(":","-"));
+			hmacKey = preSharedHMAC.getProperty(getPropertyNameFromAddress(addr));
 		}
 
 		hMacHS = Mac.getInstance(HMAC_ALGORITHM);
@@ -71,223 +81,6 @@ public class HandshakeDH implements Handshake {
 		hMacHS.init(hMacKey);
 	}
 
-	private void retrieveChosenAlgorithm(String cs) throws Exception {
-		Properties ciphersuitesProperties = new Properties();
-		ciphersuitesProperties.load(new FileInputStream(Utils.CIPHERSUITE_CONFIG_FILE));
-		ciphersuiteRTSP = ciphersuitesProperties.getProperty(cs);
-	}
-
-	private void writeCiphersuitesAvailableBox(ObjectOutputStream oos) throws Exception {
-		// Read the ciphersuites available for box
-		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, addr.toString().split("/")[1]);
-		int ciphersuitesLength = ciphersuites.length;
-		oos.writeInt(ciphersuitesLength);
-		oos.flush();
-		// Array of ciphersuites
-		for (String cipherString: ciphersuites) {
-			oos.writeUTF(cipherString);
-			oos.flush();
-		}
-	}
-
-	private void writeCertificate(ObjectOutputStream oos) throws Exception {
-
-		Certificate certificate = Utils.retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, password, fromClassName);
-		oos.writeObject(certificate);
-		oos.flush();
-	}
-
-	private void writeDHParametersBox(ObjectOutputStream oos, PublicKey publicKeyDH, BigInteger p, BigInteger g) throws Exception {
-		// Public Key DH - Box
-		oos.writeObject(publicKeyDH);
-		oos.flush();
-		// P
-		oos.writeObject(p);
-		oos.flush();
-		// G
-		oos.writeObject(g);
-		oos.flush();
-	}
-
-	private void writeDigitalSignature(ObjectOutputStream oos, byte[] message) throws Exception {
-		PrivateKey privateKey = Utils.retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE, password, fromClassName); // TODO
-
-		//HASH
-		MessageDigest md = MessageDigest.getInstance("SHA-512");
-		byte[] messageToSign = md.digest(message);
-
-
-		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
-		sig.initSign(privateKey);
-		sig.update(messageToSign);
-		byte[] signature = sig.sign();
-		oos.writeInt(signature.length);
-		oos.flush();
-		oos.write(signature);
-		oos.flush();
-	}
-
-	private void writeHMacHS(ObjectOutputStream oos, byte[] message) throws Exception {
-		// HMAC
-		hMacHS.update(message);
-		byte[] integrityData = hMacHS.doFinal();
-		oos.writeInt(integrityData.length);
-		oos.flush();
-		oos.write(integrityData);
-		oos.flush();
-	}
-
-	private void writeHMac(ObjectOutputStream oos, byte[] message) throws Exception {
-		// HMAC
-		hMac.update(message);
-		byte[] integrityData = hMac.doFinal();
-		oos.writeInt(integrityData.length);
-		oos.flush();
-		oos.write(integrityData);
-		oos.flush();
-	}
-
-
-
-	private byte[] generateSecretDHServer(BigInteger p, BigInteger g, PublicKey pubKey) throws Exception {
-		DHParameterSpec dhParams = new DHParameterSpec(p, g);
-		keysDH = Utils.generateDHKeys(diffieHellman.split("-")[0], dhParams);
-
-		return generateSecretDH(pubKey);
-	}
-
-	private byte[] generateSecretDH(PublicKey pubKey) throws Exception {
-		KeyAgreement keyAgree = KeyAgreement.getInstance(diffieHellman.split("-")[0], "BC");
-		keyAgree.init(keysDH.getPrivate());
-		keyAgree.doPhase(pubKey, true);
-		byte[] secretKey = keyAgree.generateSecret();
-
-		MessageDigest md = MessageDigest.getInstance("SHA-512");
-		return md.digest(secretKey);
-	}
-
-
-
-	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
-		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, Integer.parseInt(cipherMode[1])/Byte.SIZE);
-		ciphersuite = Cipher.getInstance(cipherMode[0]);
-		String modeCipher = cipherMode[0].split("/")[1];
-
-		IvParameterSpec ivSpec = null;
-		if(modeCipher.equals("CCM")) {
-			ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));   // 7 a 13 bytes
-		}
-		else {
-			// ...
-		}
-		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split("/")[0]);
-		ciphersuite.init(mode1, secretKeySpec, ivSpec);
-
-		byte[] movieNameFinalData;
-		if(Cipher.DECRYPT_MODE == mode1) {
-			movieNameFinalData = CryptoStuff.decrypt(movieNameData, movieNameData.length, ciphersuite, hMac);
-		}
-		else { // Encrypt
-			movieNameFinalData = CryptoStuff.encrypt(movieNameData, movieNameData.length, ciphersuite, hMac);
-		}
-
-		ciphersuite.init(mode2, secretKeySpec, ivSpec);
-
-		return movieNameFinalData;
-	}
-
-	private void generateHMacKey(byte[] symmetricAndHmacKey, String[] cipherMode) throws Exception {
-		int finalOffset = symmetricAndHmacKey.length;
-
-		if(finalOffset-(Integer.parseInt(cipherMode[1])/Byte.SIZE) > (256/Byte.SIZE)) {
-			finalOffset = (Integer.parseInt(cipherMode[1])/Byte.SIZE) + (256/Byte.SIZE);
-		}
-		byte[] macKey = Arrays.copyOfRange(symmetricAndHmacKey,(Integer.parseInt(cipherMode[1])/Byte.SIZE), finalOffset);
-
-		hMac = Mac.getInstance(HMAC_ALGORITHM);
-		Key hMacKey = new SecretKeySpec(macKey, HMAC_ALGORITHM);
-		hMac.init(hMacKey);
-	}
-
-	private byte[] getBytesOfFirstMessage(int ciphersuiteLength, String[] boxCiphersuites, X509Certificate cert,
-										  PublicKey pKeyBox, BigInteger p, BigInteger g,
-										  int signatureLength, byte[] signedBytes) throws Exception {
-		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		ObjectOutputStream oos = new ObjectOutputStream(bos);
-
-		oos.writeInt(ciphersuiteLength);
-		oos.flush();
-		for(int i = 0; i < ciphersuiteLength; i++) {
-			oos.writeUTF(boxCiphersuites[i]);
-			oos.flush();
-		}
-		oos.writeObject(cert);
-		oos.flush();
-		oos.writeObject(pKeyBox);
-		oos.flush();
-		oos.writeObject(p);
-		oos.flush();
-		oos.writeObject(g);
-		oos.flush();
-		oos.writeInt(signatureLength);
-		oos.flush();
-		oos.write(signedBytes);
-		oos.flush();
-
-		return bos.toByteArray();
-	}
-
-	private byte[] getBytesOfSecondMessage(String cs,X509Certificate cert, PublicKey serverPubKey, int signatureLength, byte[] signedBytes) throws Exception {
-		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		ObjectOutputStream auxOos = new ObjectOutputStream(bos);
-		auxOos.writeUTF(cs);
-		auxOos.flush();
-		auxOos.writeObject(cert);
-		auxOos.flush();
-		auxOos.writeObject(serverPubKey);
-		auxOos.flush();
-		auxOos.writeInt(signatureLength);
-		auxOos.flush();
-		auxOos.write(signedBytes);
-		auxOos.flush();
-		return bos.toByteArray();
-	}
-
-
-	private byte[] getBytesOfPublicKey(PublicKey pubKey) throws Exception {
-		ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
-		ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
-		auxOos.writeObject(pubKey);
-		auxOos.flush();
-		return auxBos.toByteArray();
-	}
-
-	private byte[] getMessageToSignBox(PublicKey publicKeyDH, BigInteger p, BigInteger g) throws Exception {
-		ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
-		ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
-		auxOos.writeObject(publicKeyDH);
-		auxOos.flush();
-		auxOos.writeObject(p);
-		auxOos.flush();
-		auxOos.writeObject(g);
-		auxOos.flush();
-		return auxBos.toByteArray();
-	}
-
-	private byte[] getMovieNameEncrypted(byte[] movieNameData) throws Exception {
-		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
-	}
-
-	private byte[] getMovieNameDecrypted(byte[] movieNameEncrypted) throws Exception {
-		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
-	}
-
-	private void waitForTheSend() throws Exception {
-		while(in.available() == 0) {
-			// Meter thread sleep para n gastar cpu ?
-		}
-		System.out.println("*** recebi pacote - vou avançar ***");
-	}
 
 
 	@Override
@@ -304,6 +97,8 @@ public class HandshakeDH implements Handshake {
 	public String getMovieName() {
 		return movieName;
 	}
+
+
 
 	public void createBoxHandshake(String movieName) throws Exception {
 		this.movieName = movieName;
@@ -335,8 +130,8 @@ public class HandshakeDH implements Handshake {
 		String dh = dhs[0];
 		String dhKeys = dhs[1];
 
-		DHParameterSpec dhParams = Utils.generateDHParameters(dhKeys);
-		keysDH = Utils.generateDHKeys(dh, dhParams);
+		DHParameterSpec dhParams = generateDHParameters(dhKeys);
+		keysDH = generateDHKeys(dh, dhParams);
 
 		// PublicNum Box
 		PublicKey publicKeyDH = keysDH.getPublic();
@@ -435,7 +230,7 @@ public class HandshakeDH implements Handshake {
 		System.out.println("---------------------");
 	}
 
-	
+
 	private void sendSecondMessageHS() throws Exception {
 		System.out.println("Vou enviar 2a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -452,7 +247,7 @@ public class HandshakeDH implements Handshake {
 		PublicKey dhPublickeyServer = keysDH.getPublic();
 		oos.writeObject(dhPublickeyServer);
 		oos.flush();
-		
+
 		// Create the message that server will sign
 		byte[] message2 = getBytesOfPublicKey(dhPublickeyServer);
 		// Signature
@@ -461,14 +256,14 @@ public class HandshakeDH implements Handshake {
 		byte[] messageTotal = bos.toByteArray();
 		// hash
 		writeHMacHS(oos, messageTotal);
-		
+
 		byte[] data = bos.toByteArray();
 		out.write(data);
 
 		System.out.println("Enviei 2a msg");
 		System.out.println("---------------------");
 	}
-	
+
 	private void receiveSecondMessageHS() throws Exception {
 		System.out.println("Vou receber 2 msg");
 		DataInputStream inputStream = new DataInputStream(in);
@@ -485,10 +280,10 @@ public class HandshakeDH implements Handshake {
 		validateCertificate(cert);
 
 		PublicKey publicKeyServer = cert.getPublicKey();
-		
+
 		// Yserver
 		PublicKey serverPubKey = (PublicKey) ois.readObject();
-		
+
 		// Signature
 		int signatureLength = ois.readInt();
 		// Byte Arrays that will be compared to see if its everything fine
@@ -514,8 +309,7 @@ public class HandshakeDH implements Handshake {
 		if(!MessageDigest.isEqual(messageHMAC, hmacData)) {
 			throw new Exception("Message content have been changed!");
 		}
-		
-		
+
 		// -------------------------
 		// Server - computations
 		// -------------------------
@@ -528,7 +322,7 @@ public class HandshakeDH implements Handshake {
 		System.out.println("Recebi 2a msg");
 		System.out.println("---------------------");
 	}
-	
+
 	private void sendThirdMessageHS(String movieName) throws Exception {
 		System.out.println("Vou enviar 3a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -551,7 +345,7 @@ public class HandshakeDH implements Handshake {
 		System.out.println("Enviei 3a msg");
 		System.out.println("---------------------");
 	}
-	
+
 	private String receiveThirdMessageHS()  throws Exception {
 		System.out.println("Vou receber 3a msg");
 		DataInputStream is = new DataInputStream(in);
@@ -579,7 +373,173 @@ public class HandshakeDH implements Handshake {
 		System.out.println("---------------------");
 		return new String(movieNameData);
 	}
-	
+
+	// -----------------------------------------------------------------------
+	// Auxiliary methods to write and read the objects sent in the DH Protocol
+	// -----------------------------------------------------------------------
+
+	private void writeCiphersuitesAvailableBox(ObjectOutputStream oos) throws Exception {
+		// Read the ciphersuites available for box
+		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr));
+		int ciphersuitesLength = ciphersuites.length;
+
+		oos.writeInt(ciphersuitesLength);
+		oos.flush();
+		// Array of ciphersuites
+		for (String cipherString: ciphersuites) {
+			oos.writeUTF(cipherString);
+			oos.flush();
+		}
+	}
+
+	private void writeCertificate(ObjectOutputStream oos) throws Exception {
+		Certificate certificate = retrieveCertificateFromKeystore(PATH_TO_KEYSTORE, certPassword, fromClassName);
+		oos.writeObject(certificate);
+		oos.flush();
+	}
+
+	private void writeDHParametersBox(ObjectOutputStream oos, PublicKey publicKeyDH, BigInteger p, BigInteger g) throws Exception {
+		// Public Key DH - Box
+		oos.writeObject(publicKeyDH);
+		oos.flush();
+		// P
+		oos.writeObject(p);
+		oos.flush();
+		// G
+		oos.writeObject(g);
+		oos.flush();
+	}
+
+	private void writeDigitalSignature(ObjectOutputStream oos, byte[] message) throws Exception {
+		PrivateKey privateKey = retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE, certPassword, fromClassName);
+
+		//HASH
+		MessageDigest md = MessageDigest.getInstance(SHA_ALGORITHM);
+		byte[] messageToSign = md.digest(message);
+
+		Signature sig = Signature.getInstance(getAlgorithmFromConfigString(digitalSignature),"BC");
+		sig.initSign(privateKey);
+		sig.update(messageToSign);
+		byte[] signature = sig.sign();
+
+		oos.writeInt(signature.length);
+		oos.flush();
+		oos.write(signature);
+		oos.flush();
+	}
+
+	private void writeHMacHS(ObjectOutputStream oos, byte[] message) throws Exception {
+		hMacHS.update(message);
+		byte[] integrityData = hMacHS.doFinal();
+
+		oos.writeInt(integrityData.length);
+		oos.flush();
+		oos.write(integrityData);
+		oos.flush();
+	}
+
+	private void writeHMac(ObjectOutputStream oos, byte[] message) throws Exception {
+		hMac.update(message);
+		byte[] integrityData = hMac.doFinal();
+
+		oos.writeInt(integrityData.length);
+		oos.flush();
+		oos.write(integrityData);
+		oos.flush();
+	}
+
+	// ------------------------------------------------------------------------------
+	// Auxiliary methods to generate the secrets of Server and Box in the DH Protocol
+	// ------------------------------------------------------------------------------
+
+	private byte[] generateSecretDHServer(BigInteger p, BigInteger g, PublicKey pubKey) throws Exception {
+		DHParameterSpec dhParams = new DHParameterSpec(p, g);
+		keysDH = generateDHKeys(getAlgorithmFromConfigString(diffieHellman), dhParams);
+
+		return generateSecretDH(pubKey);
+	}
+
+	private byte[] generateSecretDH(PublicKey pubKey) throws Exception {
+		KeyAgreement keyAgree = KeyAgreement.getInstance(getAlgorithmFromConfigString(diffieHellman), "BC");
+		keyAgree.init(keysDH.getPrivate());
+		keyAgree.doPhase(pubKey, true);
+		byte[] secretKey = keyAgree.generateSecret();
+
+		MessageDigest md = MessageDigest.getInstance(SHA_ALGORITHM);
+		return md.digest(secretKey);
+	}
+
+	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
+		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(cipherMode[1])));
+
+		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
+		ciphersuite = Cipher.getInstance(transformation);
+		String modeCipher = removeSlashFromString(transformation);
+
+		IvParameterSpec ivSpec = null;
+		if(modeCipher.equals(CCM_MODE)) {
+			ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));   // 7 a 13 bytes
+		}
+		else {
+			// ...
+		}
+
+		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]);   // Ex: AES
+		ciphersuite.init(mode1, secretKeySpec, ivSpec);
+
+		byte[] movieNameFinalData;
+		if(Cipher.DECRYPT_MODE == mode1) {
+			movieNameFinalData = CryptoStuff.decrypt(movieNameData, movieNameData.length, ciphersuite, hMac);
+		}
+		else { // Encrypt
+			movieNameFinalData = CryptoStuff.encrypt(movieNameData, movieNameData.length, ciphersuite, hMac);
+		}
+
+		ciphersuite.init(mode2, secretKeySpec, ivSpec);
+
+		return movieNameFinalData;
+	}
+
+	private void generateHMacKey(byte[] symmetricAndHmacKey, String[] cipherMode) throws Exception {
+		int finalOffset = symmetricAndHmacKey.length;
+
+		if((finalOffset-transformFromBitsToBytes(Integer.parseInt(cipherMode[1]))) > transformFromBitsToBytes(256)) {
+			finalOffset = transformFromBitsToBytes(Integer.parseInt(cipherMode[1])) + transformFromBitsToBytes(256);
+		}
+		byte[] macKey = Arrays.copyOfRange(symmetricAndHmacKey, transformFromBitsToBytes(Integer.parseInt(cipherMode[1])), finalOffset);
+
+		hMac = Mac.getInstance(HMAC_ALGORITHM);
+		Key hMacKey = new SecretKeySpec(macKey, HMAC_ALGORITHM);
+		hMac.init(hMacKey);
+	}
+
+	// ---------------------------------------------------------------------------------------------------------
+	// Auxiliary methods to instantiate the ciphersuite from the previously generated secrets in the DH Protocol
+	// ---------------------------------------------------------------------------------------------------------
+
+	private byte[] getMovieNameEncrypted(byte[] movieNameData) throws Exception {
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
+	}
+
+	private byte[] getMovieNameDecrypted(byte[] movieNameEncrypted) throws Exception {
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
+	}
+
+	// --------------------------------------------------------------------------------
+	// Auxiliary method to wait for the message of the other entity of the DH Protocol
+	// --------------------------------------------------------------------------------
+
+	private void waitForTheSend() throws Exception {
+		while(in.available() == 0) {
+			// Meter thread sleep para n gastar cpu ?
+		}
+		System.out.println("*** recebi pacote - vou avançar ***");
+	}
+
+	// -----------------------------------------------------------------------------------
+	// Auxiliary method to validate the certificate of the other entity in the DH Protocol
+	// -----------------------------------------------------------------------------------
+
 	/**
 	 * Validates certificate by verifying it and checking date
 	 * @param cert - certificate being validated
@@ -588,13 +548,18 @@ public class HandshakeDH implements Handshake {
 		try {		
 			Date currentDate = new Date();
 			cert.checkValidity(currentDate);
-			cert.verify(Utils.retrieveCACertificate(PATH_TO_KEYSTORE, password, fromClassName).getPublicKey());
+			cert.verify(retrieveCACertificate(PATH_TO_KEYSTORE, certPassword, fromClassName).getPublicKey());
 		} catch (CertificateNotYetValidException e){
 			throw new CertificateNotYetValidException("Certificate not in valid date!!!");
 		} catch (SignatureException e) {
 			throw new SignatureException("Not the right key!!!");
 		}
 	}
+
+	// --------------------------------------------------------------------
+	// Auxiliary method to choose the common ciphersuite in the DH Protocol
+	// --------------------------------------------------------------------
+
 	private String chooseCommonCipher(String[] boxCiphersuites, String[] readCiphersuites) throws Exception {
 		int comparator;
 		for (int i = 0; i < readCiphersuites.length; i++) {

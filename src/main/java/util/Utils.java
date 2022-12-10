@@ -1,92 +1,54 @@
-
 package util;
 
 import javax.crypto.spec.DHParameterSpec;
-import java.io.FileInputStream;
+import java.net.SocketAddress;
 import java.security.*;
-import java.security.cert.Certificate;
 import java.security.spec.InvalidParameterSpecException;
 
 public class Utils {
-	private static String	digits = "0123456789abcdef";
-	public static final String PATH_TO_KEYSTORE = "src/main/java/certificates/"; //TODO mudei para testar com chain certificates
+
+	public static final String PATH_TO_KEYSTORE = "src/main/java/certificates/";
 	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt";
 	public static final String PATH_TO_SERVER_CONFIG = "src/main/java/hjStreamServer/stream-cryptoconfig.txt";
 	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties";
 	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties";
 	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties";
 	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties";
+
 	public static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
 	public static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
 	public static final String SECURE_ENVELOPE = "SECURE_ENVELOPE";
+	public static final String HJSTREAMSERVER = "hjStreamServer";
 
-	public static String toHex(byte[] data, int length) {
-		StringBuffer buf = new StringBuffer();
-		for (int i = 0; i != length; i++) {
-			int	v = data[i] & 0xff;
+	public static final String DELIMITER_ADDRESS = "/";
+	public static final String DELIMITER_PORT = ":";
+	public static final String DELIMITER_PORT_CONFIG = "-";
 
-			buf.append(digits.charAt(v >> 4));
-			buf.append(digits.charAt(v & 0xf));
-		}
-		return buf.toString();
+
+	public static String removeSlashFromAddress(SocketAddress addr) {
+		return removeSlashFromString(addr.toString());
 	}
 
-	public static String toHex(byte[] data) {
-		return toHex(data, data.length);
+	public static String removeSlashFromString(String property) {
+		return property.split(DELIMITER_ADDRESS)[1];
 	}
 
-	public static DHParameterSpec generateDHParameters(String keySize) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidParameterSpecException {
-		AlgorithmParameterGenerator paramsGenerator = AlgorithmParameterGenerator.getInstance("DH", "BC");
-		paramsGenerator.init(Integer.parseInt(keySize));
-		AlgorithmParameters params = paramsGenerator.generateParameters();
-		return (DHParameterSpec) params.getParameterSpec(DHParameterSpec.class);
+	public static String getPropertyNameFromAddress(SocketAddress addr) {
+		return removeSlashFromAddress(addr).replace(DELIMITER_PORT, DELIMITER_PORT_CONFIG);
 	}
 
-	public static KeyPair generateDHKeys(String diffieHellman, DHParameterSpec specs) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
-		KeyPairGenerator keyGen = KeyPairGenerator.getInstance(diffieHellman, "BC");
-		keyGen.initialize(specs);
-		return keyGen.generateKeyPair();
+	public static String getAlgorithmFromConfigString(String property) {
+		return property.split(DELIMITER_PORT_CONFIG)[0];
 	}
 
-	public static Certificate retrieveCertificateFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception {
-		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
-
-		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-		keystore.load(is, password.toCharArray());
-
-		Key key = keystore.getKey(aliasEntry.toLowerCase(), password.toCharArray());
-		if (key instanceof PrivateKey) {
-			return keystore.getCertificate(aliasEntry.toLowerCase());
-		}
-		throw new Exception("unable to retrieve certificate from keystore!");
+	public static String getKeySizeFromConfigString(String property) {
+		return property.split(DELIMITER_PORT_CONFIG)[1];
 	}
 
-	public static Certificate retrieveCACertificate(String keystoreName, String password, String aliasEntry)throws Exception {
-		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
-
-		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-		keystore.load(is, password.toCharArray());
-
-		Certificate crt = keystore.getCertificate("ca");
-	
-		if(crt != null){
-			return crt;
-		}
-		throw new Exception("unable to retrieve certificate from keystore!");
+	public static int transformFromBitsToBytes(int val) {
+		return (val/Byte.SIZE);
 	}
 
-	public static PrivateKey retrievePrivateKeyFromKeystore(String keystoreName, String password, String aliasEntry) throws Exception { // TODO
-		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
-
-		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-		keystore.load(is, password.toCharArray());
-
-		Key key = keystore.getKey(aliasEntry.toLowerCase(), password.toCharArray());
-		if (key instanceof PrivateKey) {
-			return (PrivateKey) key;
-		}
-		throw new Exception("unable to retrieve certificate from keystore!");
-	}
 }
 
 
