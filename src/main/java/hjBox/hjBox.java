@@ -65,6 +65,7 @@ public class hjBox {
             System.err.println("Configuration file not found!");
             System.exit(-1);
         }
+        
         Properties properties = new Properties();
         properties.load(inputStream);
 	    String remote = properties.getProperty("remote");
@@ -74,8 +75,8 @@ public class hjBox {
         Set<SocketAddress> outSocketAddressSet = Arrays.stream(destinations.split(",")).map(s -> parseSocketAddress(s)).collect(Collectors.toSet());
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
-        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress, args[2], args[3]);
-
+        SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress, args[2], args[3], args[1]);
+      
         byte[] buffer = new byte[5 * 1024];
         DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = -1; String movieName = "";
         while (true) {

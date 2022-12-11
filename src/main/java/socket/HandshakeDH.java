@@ -10,6 +10,9 @@ import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+
+import crypto.PBEFileDecryption;
+
 import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
@@ -47,9 +50,11 @@ public class HandshakeDH implements Handshake {
 	private Cipher ciphersuite; // for the symmetric encryption
 	private byte[] symmetricAndHmacKey; // data for the ciphersuite
 	private Mac hMac; // for the symmetric encryption
+	//----------------------------------------------
+	private String configPass; //password for config files
 
 
-	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend) throws Exception {
+	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
 		this.digitalSignature = digitalSignature;
 		this.diffieHellman = diffieHellman;
 		this.fromClassName = className;
@@ -57,6 +62,8 @@ public class HandshakeDH implements Handshake {
 
 		this.addr = addr;
 		this.addrToSend = addrToSend;
+
+		this.configPass = configPass;
 
 		this.out = socket.getOutputStream();
 		this.in = socket.getInputStream();
@@ -66,7 +73,7 @@ public class HandshakeDH implements Handshake {
 
 	private void initiateHMAC() throws Exception {
 		Properties preSharedHMAC = new Properties();
-		preSharedHMAC.load(new FileInputStream(PRESHARED_CONFIG_FILE));
+		preSharedHMAC.load(PBEFileDecryption.decryptFiles(configPass, PRESHARED_CONFIG_FILE));
 
 		String hmacKey;
 		if(fromClassName.equals(HJSTREAMSERVER)) {
@@ -174,8 +181,8 @@ public class HandshakeDH implements Handshake {
 			boxCiphersuites[i] = ois.readUTF();
 		}
 		Properties ciphersuitesProperties = new Properties();
-		ciphersuitesProperties.load(new FileInputStream(Utils.CIPHERSUITE_CONFIG_FILE));
-		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1])));
+		ciphersuitesProperties.load(PBEFileDecryption.decryptFiles(configPass, CIPHERSUITE_CONFIG_FILE));
+		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1], configPass)));
 
 		// Certificate
 		X509Certificate cert = (X509Certificate) ois.readObject();
@@ -380,7 +387,7 @@ public class HandshakeDH implements Handshake {
 
 	private void writeCiphersuitesAvailableBox(ObjectOutputStream oos) throws Exception {
 		// Read the ciphersuites available for box
-		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr));
+		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr), configPass);
 		int ciphersuitesLength = ciphersuites.length;
 
 		oos.writeInt(ciphersuitesLength);

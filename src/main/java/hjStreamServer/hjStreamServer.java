@@ -32,7 +32,7 @@ public class hjStreamServer {
 		byte[] buff = new byte[4 * 1024];
 
 		SocketAddress addr = new InetSocketAddress(args[2], Integer.parseInt(args[3])); 		// <ip-multicast-address> <port>
-		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), "password", addr);
+		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), "password", addr, args[4]);
 		DataInputStream g = s.decryptMovie(args[1], args[4]);     // <movies-config> <password>
 
 		DatagramPacket p = new DatagramPacket(buff, buff.length, addr);

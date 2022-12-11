@@ -1,6 +1,7 @@
 package socket;
 
 import crypto.DecryptMovie;
+import crypto.PBEFileDecryption;
 import util.*;
 import java.io.*;
 import java.net.*;
@@ -20,9 +21,9 @@ public class SafeDatagramSocket {
 
 
     // HJSTREAMSERVER
-    public SafeDatagramSocket(String className, String password, SocketAddress addr) throws Exception {
+    public SafeDatagramSocket(String className, String password, SocketAddress addr, String configPass) throws Exception {
         Properties properties = new Properties();
-        properties.load(new FileInputStream(SERVER_CONFIG_FILE));
+        properties.load(PBEFileDecryption.decryptFiles(configPass, SERVER_CONFIG_FILE));
         String[] addrServer = checkProperty(properties, "remote").split(":");
         SocketAddress addrServerSA = new InetSocketAddress(addrServer[0], Integer.parseInt(addrServer[1]));
 
@@ -31,12 +32,12 @@ public class SafeDatagramSocket {
         ServerSocket ss = new ServerSocket(Integer.parseInt(addr.toString().split(":")[1]));
         Socket s = ss.accept();
 
-        handshakeCreation(s, className, password, addrServerSA, addr);
+        handshakeCreation(s, className, password, addrServerSA, addr, configPass);
         handshake.createServerHandshake();
     }
 
     //HJBOX
-    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr, String addressServer, String movieName) throws Exception {
+    public SafeDatagramSocket(DatagramSocket inSocket, String className, String password, InetSocketAddress addr, String addressServer, String movieName, String configPass) throws Exception {
         String[] addrServer = addressServer.split(":");
         SocketAddress addrServerSA = new InetSocketAddress(addrServer[0], Integer.parseInt(addrServer[1]));
 
@@ -53,13 +54,13 @@ public class SafeDatagramSocket {
 
         Socket s = new Socket("localhost", 9999);
 
-        handshakeCreation(s, className, password, addr, addrServerSA);
+        handshakeCreation(s, className, password, addr, addrServerSA, configPass);
         handshake.createBoxHandshake(movieName);
     }
 
-    private void handshakeCreation(Socket s, String className, String password, SocketAddress addr, SocketAddress addrToSend) throws Exception {
+    private void handshakeCreation(Socket s, String className, String password, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
         Properties properties = new Properties();
-        properties.load(new FileInputStream(HS_CONFIG_FILE));
+        properties.load(PBEFileDecryption.decryptFiles(configPass, HS_CONFIG_FILE));
         String digitalSignature = checkProperty(properties, DIGITAL_SIGNATURE);
         String diffieHellman = checkProperty(properties, DIFFIE_HELLMAN);
         String secureEnvelope = checkProperty(properties, SECURE_ENVELOPE);
@@ -68,7 +69,7 @@ public class SafeDatagramSocket {
             throw new Exception("Digital signatures option is not defined on the config file");
         }
         else if(diffieHellman != null) {
-            handshake = new HandshakeDH(s, digitalSignature, diffieHellman, className, password, addr, addrToSend);
+            handshake = new HandshakeDH(s, digitalSignature, diffieHellman, className, password, addr, addrToSend, configPass);
         }
         else if(secureEnvelope != null) {
             handshake = new HandshakeSE();  // TODO - Secure Envelopes

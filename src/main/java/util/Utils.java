@@ -5,12 +5,12 @@ import java.net.SocketAddress;
 public class Utils {
 
 	public static final String PATH_TO_KEYSTORE = "src/main/java/certificates/";
-	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt";
-	public static final String PATH_TO_SERVER_CONFIG = "src/main/java/hjStreamServer/stream-cryptoconfig.txt";
-	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties";
-	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties";
-	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties";
-	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties";
+	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt.encrypted";
+	public static final String PATH_TO_SERVER_CONFIG = "src/main/java/hjStreamServer/stream-cryptoconfig.txt.encrypted";
+	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties.encrypted";
+	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties.encrypted";
+	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties.encrypted";
+	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties.encrypted";
 
 	public static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
 	public static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
