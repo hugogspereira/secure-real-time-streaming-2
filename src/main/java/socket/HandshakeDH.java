@@ -7,6 +7,7 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
 import javax.crypto.spec.DHParameterSpec;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -21,6 +22,7 @@ import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Properties;
@@ -35,6 +37,8 @@ public class HandshakeDH implements Handshake {
 	private static final String SHA_ALGORITHM = "SHA-512";
 
 	private static final String CCM_MODE = "CCM";
+	private static final String GCM_MODE = "GCM";
+	private static final String CTR_MODE = "CTR";
 
 	private final SocketAddress addr, addrToSend;
 	private final OutputStream out;
@@ -181,8 +185,8 @@ public class HandshakeDH implements Handshake {
 			boxCiphersuites[i] = ois.readUTF();
 		}
 		Properties ciphersuitesProperties = new Properties();
-		ciphersuitesProperties.load(PBEFileDecryption.decryptFiles(configPass, CIPHERSUITE_CONFIG_FILE));
-		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1], configPass)));
+		ciphersuitesProperties.load(new FileInputStream(CIPHERSUITE_CONFIG_FILE));
+		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1])));
 
 		// Certificate
 		X509Certificate cert = (X509Certificate) ois.readObject();
@@ -387,7 +391,7 @@ public class HandshakeDH implements Handshake {
 
 	private void writeCiphersuitesAvailableBox(ObjectOutputStream oos) throws Exception {
 		// Read the ciphersuites available for box
-		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr), configPass);
+		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr));
 		int ciphersuitesLength = ciphersuites.length;
 
 		oos.writeInt(ciphersuitesLength);
@@ -477,22 +481,37 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
-		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(cipherMode[1])));
+		int keyLenght = transformFromBitsToBytes(Integer.parseInt(cipherMode[1]));
+		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, keyLenght);
 
 		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
 		ciphersuite = Cipher.getInstance(transformation);
-		String modeCipher = removeSlashFromString(transformation);
+		String[] algorithm = transformation.split("/");
 
-		IvParameterSpec ivSpec = null;
-		if(modeCipher.equals(CCM_MODE)) {
-			ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));   // 7 a 13 bytes
-		}
-		else {
-			// ...
+		if(algorithm[1].equals("CHAHA20")){
+			//TODO nao vai dar pela mesma razão do GCM o iv tem de mudar com cada encriptaçao
 		}
 
-		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]);   // Ex: AES
+		String modeCipher = algorithm[1];
+
+		AlgorithmParameterSpec ivSpec = null;
+		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
+
+		switch(modeCipher){
+			case CCM_MODE:
+				ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));
+				break;
+			case GCM_MODE: // GCM não dá porque iv tem de ser diferente em cada encriptação perguntar ao prof?
+				byte[] iv = Arrays.copyOfRange(symmetricKey,0,12);
+				ivSpec = new GCMParameterSpec(keyLenght * 8, iv);
+				break;
+			case CTR_MODE:
+				ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,16));
+				break;
+		}
+
 		ciphersuite.init(mode1, secretKeySpec, ivSpec);
+		System.out.println(ciphersuite.getAlgorithm());
 
 		byte[] movieNameFinalData;
 		if(Cipher.DECRYPT_MODE == mode1) {
