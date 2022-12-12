@@ -35,10 +35,6 @@ public class HandshakeDH implements Handshake {
 	private static final String HMAC_ALGORITHM = "HmacSHA256";
 	private static final String SHA_ALGORITHM = "SHA-512";
 
-	private static final String CCM_MODE = "CCM";
-	private static final String GCM_MODE = "GCM";
-	private static final String CTR_MODE = "CTR";
-
 	private final SocketAddress addr, addrToSend;
 	private final OutputStream out;
 	private final InputStream in;
@@ -154,7 +150,7 @@ public class HandshakeDH implements Handshake {
 		writeDHParametersBox(oos, publicKeyDH, p, g);
 
 		// Create the message that box will sign
-		byte[] message2 = getMessageToSignBox(publicKeyDH, p, g);
+		byte[] message2 = getMessageToSignBoxDH(publicKeyDH, p, g);
 		// Signature
 		writeDigitalSignature(oos, message2);
 
