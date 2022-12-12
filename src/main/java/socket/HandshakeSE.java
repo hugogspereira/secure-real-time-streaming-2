@@ -200,7 +200,7 @@ public class HandshakeSE implements Handshake {
 		}
 		Properties ciphersuitesProperties = new Properties();
 		ciphersuitesProperties.load(PBEFileDecryption.decryptFiles(configPass, CIPHERSUITE_CONFIG_FILE));
-		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1], configPass)));
+		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1])));
 
 		// TODO - secure envelope
 		// ...
@@ -426,7 +426,7 @@ public class HandshakeSE implements Handshake {
 
 	private void writeCiphersuitesAvailableBox(ObjectOutputStream oos) throws Exception {
 		// Read the ciphersuites available for box
-		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr), configPass);
+		String[] ciphersuites =  ConfigReader.readCiphersuites(PATH_TO_BOX_CONFIG, removeSlashFromAddress(addr));
 		int ciphersuitesLength = ciphersuites.length;
 
 		oos.writeInt(ciphersuitesLength);
