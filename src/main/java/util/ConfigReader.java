@@ -52,9 +52,9 @@ public class ConfigReader {
     /*
      * This method can be used to reads the ciphersuites from the new config files and will return the list of ciphersuites found
      */
-    public static String[] readCiphersuites(String path, String target, String password) throws Exception {
+    public static String[] readCiphersuites(String path, String target) throws Exception {
         try {
-            Scanner scan = new Scanner(PBEFileDecryption.decryptFiles(password, path));
+            Scanner scan = new Scanner(new FileInputStream(path));
             List<String> lines = new LinkedList<>();
             while(scan.hasNextLine()){
                 lines.add(scan.nextLine());
