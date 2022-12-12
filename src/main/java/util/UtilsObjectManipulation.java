@@ -55,6 +55,7 @@ public class UtilsObjectManipulation {
 	public static byte[] getBytesOfSecondMessageDH(String cs, X509Certificate cert, PublicKey serverPubKey, int signatureLength, byte[] signedBytes) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream auxOos = new ObjectOutputStream(bos);
+
 		auxOos.writeUTF(cs);
 		auxOos.flush();
 		auxOos.writeObject(cert);
@@ -65,6 +66,59 @@ public class UtilsObjectManipulation {
 		auxOos.flush();
 		auxOos.write(signedBytes);
 		auxOos.flush();
+		return bos.toByteArray();
+	}
+
+	public static byte[] getBytesOfThirdMessageSE(int ciphersuitesLength, String[] boxCiphersuites, int randomLength, byte[] receivedRandom, int signatureLength, byte[] signedBytes) throws Exception {
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+		oos.writeInt(ciphersuitesLength);
+		oos.flush();
+		// Array of ciphersuites
+		for (String cipherString: boxCiphersuites) {
+			oos.writeUTF(cipherString);
+			oos.flush();
+		}
+		oos.writeInt(randomLength);
+		oos.flush();
+		oos.write(receivedRandom);
+		oos.flush();
+		oos.writeInt(signatureLength);
+		oos.flush();
+		oos.write(signedBytes);
+		oos.flush();
+
+		return bos.toByteArray();
+	}
+
+	public static byte[] getBytesOfForthMessageSE(String ciphersuite, int randomLength, byte[] receivedRandom, int signatureLength, byte[] signedBytes) throws Exception {
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+		oos.writeUTF(ciphersuite);
+		oos.flush();
+		oos.writeInt(randomLength);
+		oos.flush();
+		oos.write(receivedRandom);
+		oos.flush();
+		oos.writeInt(signatureLength);
+		oos.flush();
+		oos.write(signedBytes);
+		oos.flush();
+
+		return bos.toByteArray();
+	}
+
+	public static byte[] getBytesOfFifthMessageSE(int movieLength, byte[] movieNameEncrypted) throws Exception {
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+		oos.writeInt(movieLength);
+		oos.flush();
+		oos.write(movieNameEncrypted);
+		oos.flush();
+
 		return bos.toByteArray();
 	}
 

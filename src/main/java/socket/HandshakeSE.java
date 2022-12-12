@@ -5,6 +5,7 @@ import util.ConfigReader;
 import util.CryptoStuff;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
@@ -14,6 +15,7 @@ import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Properties;
@@ -25,19 +27,15 @@ import static util.UtilsSEManipulation.*;
 
 public class HandshakeSE implements Handshake {
 
-	private static final String HMAC_ALGORITHM = "HmacSHA256";
-	private static final String SHA_ALGORITHM = "SHA-512";
-
-
 	private final SocketAddress addr, addrToSend;
 	private final OutputStream out;
 	private final InputStream in;
 	private final String fromClassName, certPassword;  // name to retrieve the certificate and the password
 	private String movieName;
 	// ---------------------------------------------
-	private final String digitalSignature, secureEnvelope;
+	private final String digitalSignature;
 	private PublicKey otherPartPublicKey;
-	private PrivateKey random;
+	private byte[] random;
 	private String ciphersuiteRTSP; // for the HS
 	private Mac hMacHS; // for the HS
 	// ---------------------------------------------
@@ -48,9 +46,8 @@ public class HandshakeSE implements Handshake {
 	private String configPass; //password for config files
 
 
-	public HandshakeSE(Socket socket, String digitalSignature, String secureEnvelope, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
+	public HandshakeSE(Socket socket, String digitalSignature, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
 		this.digitalSignature = digitalSignature;
-		this.secureEnvelope = secureEnvelope;
 		this.fromClassName = className;
 		this.certPassword = certPassword;
 
@@ -61,6 +58,8 @@ public class HandshakeSE implements Handshake {
 
 		this.out = socket.getOutputStream();
 		this.in = socket.getInputStream();
+
+		this.random = generateSERandom(32);
 
 		initiateHMAC();
 	}
@@ -164,12 +163,10 @@ public class HandshakeSE implements Handshake {
 		writeCiphersuitesAvailableBox(oos);
 
 		// SE Parameters Generation
-		String[] secEnvelopeSpecs = secureEnvelope.split("-");
-		random = generateSERandom(secEnvelopeSpecs[0], secEnvelopeSpecs[1]);
-		// TODO - secureEnvelope
+		writeRandomSEParameter(oos);
 
 		// Create the message that box will sign
-		byte[] message2 = null;
+		byte[] message2 = random;
 		// Signature
 		writeDigitalSignature(oos, message2);
 
@@ -177,8 +174,7 @@ public class HandshakeSE implements Handshake {
 		// HMAC
 		writeHMacHS(oos, messageTotal);
 
-		byte[] data = bos.toByteArray();
-		out.write(data);
+		out.write(bos.toByteArray());
 
 		System.out.println("Enviei 3a msg");
 		System.out.println("---------------------");
@@ -199,24 +195,24 @@ public class HandshakeSE implements Handshake {
 			boxCiphersuites[i] = ois.readUTF();
 		}
 		Properties ciphersuitesProperties = new Properties();
-		ciphersuitesProperties.load(PBEFileDecryption.decryptFiles(configPass, CIPHERSUITE_CONFIG_FILE));
-		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1])));
+		ciphersuitesProperties.load(new FileInputStream(CIPHERSUITE_CONFIG_FILE));
+		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split(DELIMITER_ADDRESS)[1])));
 
-		// TODO - secure envelope
-		// ...
+		int randomLength = ois.readInt();
+		byte[] receivedRandom = ois.readNBytes(randomLength);
 
 		//Signature
 		int signatureLength = ois.readInt();
 		byte[] signedBytes = ois.readNBytes(signatureLength);
 
-		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
+		Signature sig = Signature.getInstance(digitalSignature.split(DELIMITER_CONFIG)[0],"BC");
 		sig.initVerify(otherPartPublicKey);
 		if(sig.verify(signedBytes)) {
-			throw new Exception("Invalid signature!   != Sig_kprivServer(Yserver || P || G)");
+			throw new Exception("Invalid signature!   != Sig_kprivServer(Random_box)");
 		}
 
 		// Generate the bytes
-		byte[] messageTotal = null;
+		byte[] messageTotal = getBytesOfThirdMessageSE(ciphersuiteLength,boxCiphersuites,randomLength,receivedRandom,signatureLength,signedBytes);
 
 		// HMAC
 		int hmacLength = ois.readInt();
@@ -234,9 +230,12 @@ public class HandshakeSE implements Handshake {
 		// Box - computations
 		// -------------------------
 
-		String[] cipherMode = ciphersuiteRTSP.split("-");
-		// Generate the secret - from where it will be extracted the symetric key and the HMAC key
-		symmetricAndHmacKey = generateSecretSE();
+		String[] cipherMode = ciphersuiteRTSP.split(DELIMITER_CONFIG);
+		// Generate the secret - from where it will be extracted the symmetric key and the HMAC key
+		symmetricAndHmacKey = generateSecretSE(receivedRandom);
+		for (byte b:symmetricAndHmacKey) {
+			System.out.println(b);
+		}
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 
@@ -254,12 +253,10 @@ public class HandshakeSE implements Handshake {
 		oos.writeUTF(ciphersuiteRTSP);
 		oos.flush();
 
-		String[] secEnvelopeSpecs = secureEnvelope.split("-");
-		random = generateSERandom(secEnvelopeSpecs[0], secEnvelopeSpecs[1]);
-		// TODO - secureEnvelope
+		writeRandomSEParameter(oos);
 
 		// Create the message that server will sign
-		byte[] message2 = null;
+		byte[] message2 = random;
 		// Signature
 		writeDigitalSignature(oos,message2);
 
@@ -267,39 +264,38 @@ public class HandshakeSE implements Handshake {
 		// hash
 		writeHMacHS(oos, messageTotal);
 
-		byte[] data = bos.toByteArray();
-		out.write(data);
+		out.write(bos.toByteArray());
 
-		System.out.println("Enviei 2a msg");
+		System.out.println("Enviei 4a msg");
 		System.out.println("---------------------");
 	}
 
 	private void receiveForthMessageHS() throws Exception {
-		System.out.println("Vou receber 2 msg");
+		System.out.println("Vou receber 4a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
 		waitForTheSend();
 
 		// Ciphersuite escolhida
-		String cs = ois.readUTF();
-		ciphersuiteRTSP = cs;
+		ciphersuiteRTSP = ois.readUTF();
 
-		// TODO - Secure Envelope
+		int randomLength = ois.readInt();
+		byte[] receivedRandom = ois.readNBytes(randomLength);
 
 		// Signature
 		int signatureLength = ois.readInt();
 		// Byte Arrays that will be compared to see if its everything fine
 		byte[] signedBytes = ois.readNBytes(signatureLength);
 
-		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
+		Signature sig = Signature.getInstance(digitalSignature.split(DELIMITER_CONFIG)[0],"BC");
 		sig.initVerify(otherPartPublicKey);
 		if(sig.verify(signedBytes)) {
-			throw new Exception("Invalid signature!   != Sig_kprivServer(Yserver || P || G)");
+			throw new Exception("Invalid signature!   != Sig_kprivServer(Random_server)");
 		}
 
 		// Generate the bytes
-		byte[] messageTotal = null;
+		byte[] messageTotal = getBytesOfForthMessageSE(ciphersuiteRTSP,randomLength,receivedRandom,signatureLength,signedBytes);
 
 		// HMAC
 		int hmacLength = ois.readInt();
@@ -317,17 +313,20 @@ public class HandshakeSE implements Handshake {
 		// Server - computations
 		// -------------------------
 
-		String[] cipherMode = ciphersuiteRTSP.split("-");
+		String[] cipherMode = ciphersuiteRTSP.split(DELIMITER_CONFIG);
 		// Generate the secret - from where it will be extracted the symmetric key and the HMAC key
-		symmetricAndHmacKey = generateSecretSE();
+		symmetricAndHmacKey = generateSecretSE(receivedRandom);
+		for (byte b:symmetricAndHmacKey) {
+			System.out.println(b);
+		}
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
-		System.out.println("Recebi 2a msg");
+		System.out.println("Recebi 4a msg");
 		System.out.println("---------------------");
 	}
 
 	private void sendFifthMessageHS(String movieName) throws Exception {
-		System.out.println("Vou enviar 3a msg");
+		System.out.println("Vou enviar 5a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -341,22 +340,25 @@ public class HandshakeSE implements Handshake {
 		oos.write(movieNameEncrypted);
 		oos.flush();
 
+		byte[] messageTotal = bos.toByteArray();
 		// hash
-		writeHMac(oos, movieNameData);
+		writeHMac(oos, messageTotal);
 
 		out.write(bos.toByteArray());
-		System.out.println("Enviei 3a msg");
+		System.out.println("Enviei 5a msg");
 		System.out.println("---------------------");
 	}
 
 	private String receiveFifthMessageHS()  throws Exception {
-		System.out.println("Vou receber 3a msg");
+		System.out.println("Vou receber 5a msg");
 		DataInputStream is = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(is);
 
 		waitForTheSend();
 
-		byte[] movieNameEncrypted = ois.readNBytes(ois.readInt());
+		int movieLength = ois.readInt();
+		byte[] movieNameEncrypted = ois.readNBytes(movieLength);
+
 		// Decrypted Message
 		byte[] movieNameData = getMovieNameDecrypted(movieNameEncrypted);
 
@@ -364,15 +366,18 @@ public class HandshakeSE implements Handshake {
 		int hmacLength = ois.readInt();
 		byte[] hmacData = ois.readNBytes(hmacLength);
 
+		// Generate the bytes
+		byte[] messageTotal = getBytesOfFifthMessageSE(movieLength,movieNameEncrypted);
+
 		// Byte Arrays that will be compared to see if it is everything fine
-		hMac.update(movieNameData);
+		hMac.update(messageTotal);
 		byte[] messageHMAC = hMac.doFinal();
 
 		if(!MessageDigest.isEqual(messageHMAC, hmacData)) {
 			throw new Exception("Message content have been changed!");
 		}
 
-		System.out.println("Recebi 3a msg");
+		System.out.println("Recebi 5a msg");
 		System.out.println("---------------------");
 		return new String(movieNameData);
 	}
@@ -462,6 +467,13 @@ public class HandshakeSE implements Handshake {
 		oos.flush();
 	}
 
+	private void writeRandomSEParameter(ObjectOutputStream oos) throws Exception {
+		oos.writeInt(random.length);
+		oos.flush();
+		oos.write(random);
+		oos.flush();
+	}
+
 	private void writeHMacHS(ObjectOutputStream oos, byte[] message) throws Exception {
 		hMacHS.update(message);
 		byte[] integrityData = hMacHS.doFinal();
@@ -486,27 +498,58 @@ public class HandshakeSE implements Handshake {
 	// Auxiliary methods to generate the secrets of Server and Box in the DH Protocol
 	// ------------------------------------------------------------------------------
 
-	private byte[] generateSecretSE() throws Exception {
-		 return null;		//TODO
+	private byte[] generateSecretSE(byte[] otherRandom) throws Exception {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+		if(fromClassName.equals(HJSTREAMSERVER)) {
+			out.write(random);
+			out.flush();
+			out.write(otherRandom);
+			out.flush();
+		}
+		else {
+			out.write(otherRandom);
+			out.flush();
+			out.write(random);
+			out.flush();
+		}
+
+		MessageDigest md = MessageDigest.getInstance(SHA_ALGORITHM);
+		return md.digest(out.toByteArray());
 	}
 
 	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
-		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(cipherMode[1])));
+		int keyLenght = transformFromBitsToBytes(Integer.parseInt(cipherMode[1]));
+		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, keyLenght);
 
 		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
 		ciphersuite = Cipher.getInstance(transformation);
-		String modeCipher = removeSlashFromString(transformation);
+		String[] algorithm = transformation.split(DELIMITER_ADDRESS);
 
-		IvParameterSpec ivSpec = null;
-		if(modeCipher.equals(CCM_MODE)) {
-			ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));   // 7 a 13 bytes
-		}
-		else {
-			// ...
+		if(algorithm[0].equals("CHACHA20")){
+			// nao vai dar pela mesma razão do GCM o iv tem de mudar com cada encriptaçao - TODO
 		}
 
-		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]);   // Ex: AES
+		String modeCipher = algorithm[1];
+
+		AlgorithmParameterSpec ivSpec = null;
+		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
+
+		switch(modeCipher){
+			case CCM_MODE:
+				ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));
+				break;
+			case GCM_MODE: // GCM não dá porque iv tem de ser diferente em cada encriptação - TODO
+				byte[] iv = Arrays.copyOfRange(symmetricKey,0,12);
+				ivSpec = new GCMParameterSpec(keyLenght * 8, iv);
+				break;
+			case CTR_MODE:
+				ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,16));
+				break;
+		}
+
 		ciphersuite.init(mode1, secretKeySpec, ivSpec);
+		System.out.println(ciphersuite.getAlgorithm());
 
 		byte[] movieNameFinalData;
 		if(Cipher.DECRYPT_MODE == mode1) {
@@ -539,11 +582,11 @@ public class HandshakeSE implements Handshake {
 	// ---------------------------------------------------------------------------------------------------------
 
 	private byte[] getMovieNameEncrypted(byte[] movieNameData) throws Exception {
-		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split(DELIMITER_CONFIG), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
 	}
 
 	private byte[] getMovieNameDecrypted(byte[] movieNameEncrypted) throws Exception {
-		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split(DELIMITER_CONFIG), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
 	}
 
 	// --------------------------------------------------------------------------------

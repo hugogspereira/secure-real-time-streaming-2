@@ -32,9 +32,6 @@ import static util.UtilsDHManipulation.*;
 
 public class HandshakeDH implements Handshake {
 
-	private static final String HMAC_ALGORITHM = "HmacSHA256";
-	private static final String SHA_ALGORITHM = "SHA-512";
-
 	private final SocketAddress addr, addrToSend;
 	private final OutputStream out;
 	private final InputStream in;
@@ -50,7 +47,7 @@ public class HandshakeDH implements Handshake {
 	private byte[] symmetricAndHmacKey; // data for the ciphersuite
 	private Mac hMac; // for the symmetric encryption
 	//----------------------------------------------
-	private String configPass; //password for config files
+	private final String configPass; //password for config files
 
 
 	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
@@ -132,7 +129,7 @@ public class HandshakeDH implements Handshake {
 		writeCertificate(oos);
 
 		// DH Parameters Generation
-		String[] dhs = diffieHellman.split("-");
+		String[] dhs = diffieHellman.split(DELIMITER_CONFIG);
 		String dh = dhs[0];
 		String dhKeys = dhs[1];
 
@@ -181,7 +178,7 @@ public class HandshakeDH implements Handshake {
 		}
 		Properties ciphersuitesProperties = new Properties();
 		ciphersuitesProperties.load(new FileInputStream(CIPHERSUITE_CONFIG_FILE));
-		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split("/")[1])));
+		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split(DELIMITER_ADDRESS)[1])));
 
 		// Certificate
 		X509Certificate cert = (X509Certificate) ois.readObject();
@@ -201,7 +198,7 @@ public class HandshakeDH implements Handshake {
 		byte[] signedBytes = ois.readNBytes(signatureLength);
 
 		Security.addProvider(new BouncyCastleProvider());
-		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
+		Signature sig = Signature.getInstance(digitalSignature.split(DELIMITER_CONFIG)[0],"BC");
 		sig.initVerify(publicKeyBox);
 		if(sig.verify(signedBytes)) {
 			throw new Exception("Invalid signature!   != Sig_kprivServer(Yserver || P || G)");
@@ -226,7 +223,7 @@ public class HandshakeDH implements Handshake {
 		// Box - computations
 		// -------------------------
 
-		String[] cipherMode = ciphersuiteRTSP.split("-");
+		String[] cipherMode = ciphersuiteRTSP.split(DELIMITER_CONFIG);
 		// Generate the secret - from where it will be extracted the symetric key and the HMAC key
 		symmetricAndHmacKey = generateSecretDHServer(p,g,boxPubKey);
 		// Parte que vai para a chave HMAC
@@ -295,7 +292,7 @@ public class HandshakeDH implements Handshake {
 		// Byte Arrays that will be compared to see if its everything fine
 		byte[] signedBytes = ois.readNBytes(signatureLength);
 
-		Signature sig = Signature.getInstance(digitalSignature.split("-")[0],"BC");
+		Signature sig = Signature.getInstance(digitalSignature.split(DELIMITER_CONFIG)[0],"BC");
 		sig.initVerify(publicKeyServer);
 		if(sig.verify(signedBytes)) {
 			throw new Exception("Invalid signature!   != Sig_kprivServer(Yserver || P || G)");
@@ -320,7 +317,7 @@ public class HandshakeDH implements Handshake {
 		// Server - computations
 		// -------------------------
 
-		String[] cipherMode = ciphersuiteRTSP.split("-");
+		String[] cipherMode = ciphersuiteRTSP.split(DELIMITER_CONFIG);
 		// Generate the secret - from where it will be extracted the symetric key and the HMAC key
 		symmetricAndHmacKey = generateSecretDH(serverPubKey);
 		// Parte que vai para a chave HMAC
@@ -481,9 +478,9 @@ public class HandshakeDH implements Handshake {
 
 		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
 		ciphersuite = Cipher.getInstance(transformation);
-		String[] algorithm = transformation.split("/");
+		String[] algorithm = transformation.split(DELIMITER_ADDRESS);
 
-		if(algorithm[1].equals("CHAHA20")){
+		if(algorithm[0].equals("CHACHA20")){
 			//TODO nao vai dar pela mesma razão do GCM o iv tem de mudar com cada encriptaçao
 		}
 

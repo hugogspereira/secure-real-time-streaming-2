@@ -8,10 +8,8 @@ public class UtilsSEManipulation {
 	// Auxiliary methods to get keyPairs
 	// ---------------------------------
 
-	public static PrivateKey generateSERandom(String mode, String keySize) throws Exception {
-		KeyPairGenerator generator = KeyPairGenerator.getInstance(mode, "BC");
-		generator.initialize(Integer.parseInt(keySize));
-		return generator.generateKeyPair().getPrivate();
+	public static byte[] generateSERandom(int bytes) throws Exception {
+		return SecureRandom.getInstanceStrong().generateSeed(bytes);
 	}
 
 

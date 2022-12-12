@@ -60,10 +60,9 @@ public class SafeDatagramSocket {
 
     private void handshakeCreation(Socket s, String className, String password, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
         Properties properties = new Properties();
-        properties.load(PBEFileDecryption.decryptFiles(configPass, HS_CONFIG_FILE));
+        properties.load(new FileInputStream(HS_CONFIG_FILE));
         String digitalSignature = checkProperty(properties, DIGITAL_SIGNATURE);
         String diffieHellman = checkProperty(properties, DIFFIE_HELLMAN);
-        String secureEnvelope = checkProperty(properties, SECURE_ENVELOPE);
 
         if(digitalSignature == null) {
             throw new Exception("Digital signatures option is not defined on the config file");
@@ -71,11 +70,8 @@ public class SafeDatagramSocket {
         else if(diffieHellman != null) {
             handshake = new HandshakeDH(s, digitalSignature, diffieHellman, className, password, addr, addrToSend, configPass);
         }
-        else if(secureEnvelope != null) {
-            handshake = new HandshakeSE(s, digitalSignature, secureEnvelope, className, password, addr, addrToSend, configPass);
-        }
         else {
-            throw new Exception("Neither Diffie Hellman, neither secure envelopes option is defined");
+            handshake = new HandshakeSE(s, digitalSignature, className, password, addr, addrToSend, configPass);
         }
     }
 

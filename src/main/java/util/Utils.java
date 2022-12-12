@@ -7,9 +7,9 @@ public class Utils {
 	public static final String PATH_TO_KEYSTORE = "src/main/java/certificates/";
 	public static final String PATH_TO_BOX_CONFIG = "src/main/java/hjBox/box-cryptoconfig.txt"; //does not need to be encrypted 
 	public static final String PATH_TO_SERVER_CONFIG = "src/main/java/hjStreamServer/stream-cryptoconfig.txt"; //does not need to be encrypted 
-	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties"; //does not need to be encrypted 
+	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties"; //does not need to be encrypted
+	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties"; //does not need to be encrypted
 	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties.encrypted";
-	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties.encrypted";
 	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties.encrypted";
 
 	public static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
@@ -18,12 +18,16 @@ public class Utils {
 	public static final String HJSTREAMSERVER = "hjStreamServer";
 
 	public static final String DELIMITER_ADDRESS = "/";
+	public static final String DELIMITER_CONFIG = "-";
 	public static final String DELIMITER_PORT = ":";
 	public static final String DELIMITER_PORT_CONFIG = "-";
 
 	public static final String CCM_MODE = "CCM";
 	public static final String GCM_MODE = "GCM";
 	public static final String CTR_MODE = "CTR";
+
+	public static final String HMAC_ALGORITHM = "HmacSHA256";
+	public static final String SHA_ALGORITHM = "SHA-512";
 
 
 	public static String removeSlashFromAddress(SocketAddress addr) {
