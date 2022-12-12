@@ -72,7 +72,7 @@ public class SafeDatagramSocket {
             handshake = new HandshakeDH(s, digitalSignature, diffieHellman, className, password, addr, addrToSend, configPass);
         }
         else if(secureEnvelope != null) {
-            handshake = new HandshakeSE();  // TODO - Secure Envelopes
+            handshake = new HandshakeSE(s, digitalSignature, secureEnvelope, className, password, addr, addrToSend, configPass);
         }
         else {
             throw new Exception("Neither Diffie Hellman, neither secure envelopes option is defined");

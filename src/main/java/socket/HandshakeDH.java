@@ -2,7 +2,6 @@ package socket;
 
 import util.ConfigReader;
 import util.CryptoStuff;
-import util.Utils;
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
@@ -34,7 +33,6 @@ public class HandshakeDH implements Handshake {
 	private static final String HMAC_ALGORITHM = "HmacSHA256";
 	private static final String SHA_ALGORITHM = "SHA-512";
 
-	private static final String CCM_MODE = "CCM";
 
 	private final SocketAddress addr, addrToSend;
 	private final OutputStream out;
@@ -151,7 +149,7 @@ public class HandshakeDH implements Handshake {
 		writeDHParametersBox(oos, publicKeyDH, p, g);
 
 		// Create the message that box will sign
-		byte[] message2 = getMessageToSignBox(publicKeyDH, p, g);
+		byte[] message2 = getMessageToSignBoxDH(publicKeyDH, p, g);
 		// Signature
 		writeDigitalSignature(oos, message2);
 
@@ -167,7 +165,7 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private void receiveFirstMessageHS() throws Exception {
-		System.out.println("Recebi 1a msg");
+		System.out.println("Vou receber 1a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -209,7 +207,7 @@ public class HandshakeDH implements Handshake {
 		}
 
 		// Generate the bytes
-		byte[] messageTotal = getBytesOfFirstMessage(ciphersuiteLength,boxCiphersuites,cert,boxPubKey,p,g,signatureLength,signedBytes);
+		byte[] messageTotal = getBytesOfFirstMessageDH(ciphersuiteLength,boxCiphersuites,cert,boxPubKey,p,g,signatureLength,signedBytes);
 
 		// HMAC
 		int hmacLength = ois.readInt();
@@ -303,7 +301,7 @@ public class HandshakeDH implements Handshake {
 		}
 
 		// Generate the bytes
-		byte[] messageTotal = getBytesOfSecondMessage(cs,cert,serverPubKey,signatureLength,signedBytes);
+		byte[] messageTotal = getBytesOfSecondMessageDH(cs,cert,serverPubKey,signatureLength,signedBytes);
 
 		// HMAC
 		int hmacLength = ois.readInt();

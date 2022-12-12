@@ -3,6 +3,7 @@ package util;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigInteger;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 
@@ -13,9 +14,9 @@ public class UtilsObjectManipulation {
 	// Auxiliary methods to get bytes of the message for the HMAC comparation in the DH Protocol
 	// -----------------------------------------------------------------------------------------
 
-	public static byte[] getBytesOfFirstMessage(int ciphersuiteLength, String[] boxCiphersuites, X509Certificate cert,
-										  PublicKey pKeyBox, BigInteger p, BigInteger g,
-										  int signatureLength, byte[] signedBytes) throws Exception {
+	public static byte[] getBytesOfFirstMessageDH(int ciphersuiteLength, String[] boxCiphersuites, X509Certificate cert,
+												  PublicKey pKeyBox, BigInteger p, BigInteger g,
+												  int signatureLength, byte[] signedBytes) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -41,7 +42,17 @@ public class UtilsObjectManipulation {
 		return bos.toByteArray();
 	}
 
-	public static byte[] getBytesOfSecondMessage(String cs,X509Certificate cert, PublicKey serverPubKey, int signatureLength, byte[] signedBytes) throws Exception {
+	public static byte[] getBytesOfFirstMessageSE(X509Certificate cert) throws Exception {
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(bos);
+
+		oos.writeObject(cert);
+		oos.flush();
+
+		return bos.toByteArray();
+	}
+
+	public static byte[] getBytesOfSecondMessageDH(String cs, X509Certificate cert, PublicKey serverPubKey, int signatureLength, byte[] signedBytes) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream auxOos = new ObjectOutputStream(bos);
 		auxOos.writeUTF(cs);
@@ -67,7 +78,7 @@ public class UtilsObjectManipulation {
 		return auxBos.toByteArray();
 	}
 
-	public static byte[] getMessageToSignBox(PublicKey publicKeyDH, BigInteger p, BigInteger g) throws Exception {
+	public static byte[] getMessageToSignBoxDH(PublicKey publicKeyDH, BigInteger p, BigInteger g) throws Exception {
 		ByteArrayOutputStream auxBos = new ByteArrayOutputStream();
 		ObjectOutputStream auxOos = new ObjectOutputStream(auxBos);
 
@@ -80,4 +91,5 @@ public class UtilsObjectManipulation {
 
 		return auxBos.toByteArray();
 	}
+
 }

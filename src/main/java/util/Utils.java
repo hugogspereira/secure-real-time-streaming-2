@@ -21,6 +21,8 @@ public class Utils {
 	public static final String DELIMITER_PORT = ":";
 	public static final String DELIMITER_PORT_CONFIG = "-";
 
+	public static final String CCM_MODE = "CCM";
+
 
 	public static String removeSlashFromAddress(SocketAddress addr) {
 		return removeSlashFromString(addr.toString());
