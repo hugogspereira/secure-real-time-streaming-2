@@ -27,8 +27,8 @@ public class hjStreamServer {
 	           	System.exit(-1);
 		}
 
-		int size, count = -1;
-		long time;
+		// TODO - ver como tinhamos antes, apaguei coisas a mais
+		int size, count = 0;
 		byte[] buff = new byte[4 * 1024];
 
 		SocketAddress addr = new InetSocketAddress(args[2], Integer.parseInt(args[3])); 		// <ip-multicast-address> <port>
@@ -36,10 +36,9 @@ public class hjStreamServer {
 		DataInputStream g = s.decryptMovie(args[1], args[4]);     // <movies-config> <password>
 
 		DatagramPacket p = new DatagramPacket(buff, buff.length, addr);
-		long t0 = System.nanoTime(), q0 = 0, afs = 0;
+		long t0 = System.nanoTime(), q0 = 0, afs = 0, time;
 
 		while ( g.available() > 0 ) {
-			if(count == -1) { s.send(new DatagramPacket(args[0].getBytes(StandardCharsets.UTF_8), args[0].getBytes(StandardCharsets.UTF_8).length, addr)); count++; continue; }
 			size = g.readShort();
 			time = g.readLong();
 			if ( count == 0 ) q0 = time;
@@ -57,8 +56,7 @@ public class hjStreamServer {
 			s.send(p);
 			System.out.println("+");
 		}
-		s.printServerConfigStatus(args[0], count, afs, (double)(System.nanoTime()-t0)/1000000000);
-		s.send(new DatagramPacket(SafeDatagramSocket.CONTROL_MESSAGE, SafeDatagramSocket.CONTROL_MESSAGE.length, addr));
+		s.printServerConfigStatus(count, afs, (double)(System.nanoTime()-t0)/1000000000,addr);
 	}
 
 }

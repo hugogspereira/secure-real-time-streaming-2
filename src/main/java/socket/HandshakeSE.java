@@ -3,6 +3,7 @@ package socket;
 import crypto.PBEFileDecryption;
 import util.ConfigReader;
 import util.CryptoStuff;
+import util.PrintStats;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
@@ -17,6 +18,7 @@ import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Properties;
 
@@ -96,6 +98,24 @@ public class HandshakeSE implements Handshake {
 	@Override
 	public String getMovieName() {
 		return movieName;
+	}
+
+	@Override
+	public void printBoxConfigStatus(int count, long afs, double totalTime) {
+		byte[] key = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(ciphersuiteRTSP.split(DELIMITER_CONFIG)[1])));
+		String[] movie = movieName.split(DELIMITER_ADDRESS);
+		String moviename = movie[movie.length-1].split(".encrypted")[0];
+		PrintStats.toPrintBoxConfigStats(moviename, ciphersuite.getAlgorithm(), Base64.getEncoder().encodeToString(key), key.length*Byte.SIZE, HMAC_ALGORITHM);
+		PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+	}
+
+	@Override
+	public void printServerConfigStatus(int count, long afs, double totalTime) {
+		byte[] key = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(ciphersuiteRTSP.split(DELIMITER_CONFIG)[1])));
+		String[] movie = movieName.split(DELIMITER_ADDRESS);
+		String moviename = movie[movie.length-1].split(".encrypted")[0];
+		PrintStats.toPrintServerConfigStats(moviename, ciphersuite.getAlgorithm(), Base64.getEncoder().encodeToString(key), key.length*Byte.SIZE, HMAC_ALGORITHM);
+		PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
 	}
 
 

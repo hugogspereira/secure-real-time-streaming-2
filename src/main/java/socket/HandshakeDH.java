@@ -10,9 +10,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
 import crypto.PBEFileDecryption;
-
+import util.PrintStats;
 import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
@@ -23,6 +22,7 @@ import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Properties;
 import static util.Utils.*;
@@ -99,6 +99,24 @@ public class HandshakeDH implements Handshake {
 	@Override
 	public String getMovieName() {
 		return movieName;
+	}
+
+	@Override
+	public void printBoxConfigStatus(int count, long afs, double totalTime) {
+		byte[] key = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(ciphersuiteRTSP.split(DELIMITER_CONFIG)[1])));
+		String[] movie = movieName.split(DELIMITER_ADDRESS);
+		String moviename = movie[movie.length-1].split(".encrypted")[0];
+		PrintStats.toPrintBoxConfigStats(moviename, ciphersuite.getAlgorithm(), Base64.getEncoder().encodeToString(key), key.length*Byte.SIZE, HMAC_ALGORITHM);
+		PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+	}
+
+	@Override
+	public void printServerConfigStatus(int count, long afs, double totalTime) {
+		byte[] key = Arrays.copyOfRange(symmetricAndHmacKey,0, transformFromBitsToBytes(Integer.parseInt(ciphersuiteRTSP.split(DELIMITER_CONFIG)[1])));
+		String[] movie = movieName.split(DELIMITER_ADDRESS);
+		String moviename = movie[movie.length-1].split(".encrypted")[0];
+		PrintStats.toPrintServerConfigStats(moviename, ciphersuite.getAlgorithm(), Base64.getEncoder().encodeToString(key), key.length*Byte.SIZE, HMAC_ALGORITHM);
+		PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
 	}
 
 
@@ -541,11 +559,11 @@ public class HandshakeDH implements Handshake {
 	// ---------------------------------------------------------------------------------------------------------
 
 	private byte[] getMovieNameEncrypted(byte[] movieNameData) throws Exception {
-		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split(DELIMITER_CONFIG), Cipher.ENCRYPT_MODE, Cipher.DECRYPT_MODE, movieNameData);
 	}
 
 	private byte[] getMovieNameDecrypted(byte[] movieNameEncrypted) throws Exception {
-		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split("-"), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
+		return generateCiphersuiteExtractMovieName(symmetricAndHmacKey,  ciphersuiteRTSP.split(DELIMITER_CONFIG), Cipher.DECRYPT_MODE, Cipher.ENCRYPT_MODE, movieNameEncrypted);
 	}
 
 	// --------------------------------------------------------------------------------

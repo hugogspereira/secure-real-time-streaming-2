@@ -41,7 +41,7 @@ public class SafeDatagramSocket {
         String[] addrServer = addressServer.split(":");
         SocketAddress addrServerSA = new InetSocketAddress(addrServer[0], Integer.parseInt(addrServer[1]));
 
-        // TODO ---------------------------------------------------
+        // -------------------------------------------------------
         if(addr.getAddress().isMulticastAddress()){
             MulticastSocket datagramSocket = new MulticastSocket(addr.getPort());
             datagramSocket.joinGroup(addr, null);
@@ -123,26 +123,14 @@ public class SafeDatagramSocket {
         datagramSocket.send(p);
     }
 
-    public void printBoxConfigStatus(String movieName, int count, long afs, double totalTime) {
-        /* TODO
-        String boxKey = ciphersuite.getAlgorithm();
-        String boxIntegrity = checkProperty(properties, INTEGRITY);
-        if (boxIntegrity == null)
-            boxIntegrity = checkProperty(properties, MACKEY);
-        PrintStats.toPrintBoxConfigStats(movieName, checkProperty(properties, CIPHERSUITE), boxKey, boxKey.length(), boxIntegrity);
-        PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
-        */
+    public void printBoxConfigStatus(int count, long afs, double totalTime) {
+        handshake.printBoxConfigStatus(count,afs,totalTime);
     }
 
-    public void printServerConfigStatus(String movieName, int count, long afs, double totalTime) {
-        /* TODO
-        String boxKey = checkProperty(properties, KEY);
-        String boxIntegrity = checkProperty(properties, INTEGRITY);
-        if (boxIntegrity == null)
-            boxIntegrity = checkProperty(properties, MACKEY);
-        PrintStats.toPrintServerConfigStats(movieName, checkProperty(properties, CIPHERSUITE), boxKey, boxKey.length(), boxIntegrity);
-        PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
-        */
+    public void printServerConfigStatus(int count, long afs, double totalTime, SocketAddress addr) throws IOException {
+        send(new DatagramPacket(SafeDatagramSocket.CONTROL_MESSAGE, SafeDatagramSocket.CONTROL_MESSAGE.length, addr));
+
+        handshake.printServerConfigStatus(count,afs,totalTime);
     }
 
     public DataInputStream decryptMovie(String encryptedConfig, String password) throws Exception {

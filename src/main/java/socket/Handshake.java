@@ -16,4 +16,7 @@ public interface Handshake {
 
 	void createServerHandshake() throws Exception;
 
+	void printBoxConfigStatus(int count, long afs, double totalTime);
+
+	void printServerConfigStatus(int count, long afs, double totalTime);
 }
