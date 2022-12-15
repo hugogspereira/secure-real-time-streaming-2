@@ -522,6 +522,11 @@ public class HandshakeSE implements Handshake {
 		int keyLenght = transformFromBitsToBytes(Integer.parseInt(cipherMode[1]));
 		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, keyLenght);
 
+		// iv is obtained from the hash of the secret
+		// (in the real world it will exist multiple hashes appended with 'AAAAA', 'BBBBB', etc)
+		MessageDigest md = MessageDigest.getInstance(SHA_ALGORITHM);
+		byte[] ivHashed = md.digest(symmetricKey);
+
 		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
 		ciphersuite = Cipher.getInstance(transformation);
 		String[] algorithm = transformation.split(DELIMITER_ADDRESS);
@@ -533,18 +538,18 @@ public class HandshakeSE implements Handshake {
 		String modeCipher = algorithm[1];
 
 		AlgorithmParameterSpec ivSpec = null;
-		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
+		SecretKeySpec secretKeySpec = new SecretKeySpec(ivHashed, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
 
 		switch(modeCipher){
 			case CCM_MODE:
-				ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,7));
+				ivSpec = new IvParameterSpec(Arrays.copyOfRange(ivHashed,0,7));
 				break;
 			case GCM_MODE: // GCM não dá porque iv tem de ser diferente em cada encriptação - TODO
-				byte[] iv = Arrays.copyOfRange(symmetricKey,0,12);
+				byte[] iv = Arrays.copyOfRange(ivHashed,0,12);
 				ivSpec = new GCMParameterSpec(keyLenght * 8, iv);
 				break;
 			case CTR_MODE:
-				ivSpec = new IvParameterSpec(Arrays.copyOfRange(symmetricKey,0,16));
+				ivSpec = new IvParameterSpec(Arrays.copyOfRange(ivHashed,0,16));
 				break;
 		}
 
