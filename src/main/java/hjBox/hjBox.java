@@ -76,15 +76,14 @@ public class hjBox {
 
         DatagramSocket inSocket = DatagramSocketCreator.create(inSocketAddress);
         SafeDatagramSocket outSocket = new SafeDatagramSocket(inSocket, hjBox.class.getSimpleName(), "password", inSocketAddress, args[2], args[3], args[1]);
-      
+
+        // TODO - ver como tinhamos antes, apaguei coisas a mais
         byte[] buffer = new byte[5 * 1024];
-        DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = -1; String movieName = "";
+        DatagramPacket p, inPacket; int count = 0; long afs = 0, t0 = System.nanoTime();
         while (true) {
             inPacket = new DatagramPacket(buffer, buffer.length);
  	        inSocket.receive(inPacket);  // if remote is unicast
-            if(t0 == -1) {
-                movieName = new String(Arrays.copyOfRange(inPacket.getData(), 0, inPacket.getLength()),StandardCharsets.UTF_8); t0 = System.nanoTime(); continue;
-            } else if(inPacket.getLength() == 1) { break; }
+            if(inPacket.getLength() == 1) { break; }
 
             p = outSocket.decrypt(new DatagramPacket(inPacket.getData(), inPacket.getLength(), parseSocketAddress(SafeDatagramSocket.DEFAULT_ADDRESS)));
             if(p == null) { continue; }
@@ -94,7 +93,7 @@ public class hjBox {
             count += 1; afs += inPacket.getLength();
             System.out.println("*");
         }
-        outSocket.printBoxConfigStatus(movieName, count, afs, (double)(System.nanoTime()-t0)/1000000000);
+        outSocket.printBoxConfigStatus(count, afs, (double)(System.nanoTime()-t0)/1000000000);
     }
 
     private static InetSocketAddress parseSocketAddress(String socketAddress) {
