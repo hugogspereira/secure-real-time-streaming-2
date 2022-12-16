@@ -16,7 +16,7 @@ public class PrintStats {
 		System.out.println();
 	}
 
-	public static void toPrintServerStats(int nf, double afs, long ms, double etm, double fps, double tput) {
+	public static void toPrintServerStats(int nf, double afs, long ms, double etm, double fps, double tput, double timeHS) {
 		System.out.println("---------------------------------------------");
 		System.out.println("Performance indicators of streaming" );
 		System.out.println("delivered to receiver Box(es)");
@@ -27,6 +27,7 @@ public class PrintStats {
 		System.out.println("Total elapsed time of streamed movie: " + etm);
 		System.out.println("Average sent frame rate (frames/sec): " +fps);
 		System.out.println("Observed throughput (KBytes/sec): " + tput);
+		System.out.println("Handshake time: " + timeHS +"s");
 	}
 
 	public static void toPrintBoxConfigStats(String movie, String csuite, String ks, int ksize, String hic) {
@@ -43,7 +44,7 @@ public class PrintStats {
 		System.out.println();
 	}
 
-	public static void toPrintBoxStats(int nf, double afs, long ms, double etm, double fps, double tput) {
+	public static void toPrintBoxStats(int nf, double afs, long ms, double etm, double fps, double tput, double timeHS) {
 		System.out.println("---------------------------------------------");
 		System.out.println("Performance indicators of received and processed stream" );
 		System.out.println("delivered by the Streaming Server)");
@@ -54,6 +55,7 @@ public class PrintStats {
 		System.out.println("Total elapsed time of received movie: " + etm);
 		System.out.println("Average sent frame rate (frames/sec): " +fps);
 		System.out.println("Observed throughput (KBytes/sec): " + tput);
+		System.out.println("Handshake time: " + timeHS +"s");
 	}
 
 }

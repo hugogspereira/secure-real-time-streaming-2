@@ -48,6 +48,7 @@ public class HandshakeDH implements Handshake {
 	private Mac hMac; // for the symmetric encryption
 	//----------------------------------------------
 	private final String configPass; //password for config files
+	private double timeHS;
 
 
 	public HandshakeDH(Socket socket, String digitalSignature, String diffieHellman, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
@@ -107,7 +108,7 @@ public class HandshakeDH implements Handshake {
 		String[] movie = movieName.split(DELIMITER_ADDRESS);
 		String moviename = movie[movie.length-1].split(".encrypted")[0];
 		PrintStats.toPrintBoxConfigStats(moviename, ciphersuite.getAlgorithm(), Base64.getEncoder().encodeToString(key), key.length*Byte.SIZE, HMAC_ALGORITHM);
-		PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+		PrintStats.toPrintBoxStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime, timeHS);
 	}
 
 	@Override
@@ -116,22 +117,29 @@ public class HandshakeDH implements Handshake {
 		String[] movie = movieName.split(DELIMITER_ADDRESS);
 		String moviename = movie[movie.length-1].split(".encrypted")[0];
 		PrintStats.toPrintServerConfigStats(moviename, ciphersuite.getAlgorithm(), Base64.getEncoder().encodeToString(key), key.length*Byte.SIZE, HMAC_ALGORITHM);
-		PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime);
+		PrintStats.toPrintServerStats(count, (double)afs/count, afs, totalTime, (double)count/totalTime, (double)afs*1000/totalTime, timeHS);
 	}
 
 
 
 	public void createBoxHandshake(String movieName) throws Exception {
 		this.movieName = movieName;
+		long time0 = System.nanoTime();
 		sendFirstMessageHS();
 		receiveSecondMessageHS();
 		sendThirdMessageHS(movieName);
+		timeHS = (double)(System.nanoTime()-time0)/1000000000;
 	}
 
 	public void createServerHandshake() throws Exception {
+		// Waits until the box sends the message
+		waitForTheSend();
+		long time0 = System.nanoTime();
+
 		receiveFirstMessageHS();
 		sendSecondMessageHS();
 		this.movieName = receiveThirdMessageHS();
+		timeHS = (double)(System.nanoTime()-time0)/1000000000;
 	}
 
 	private void sendFirstMessageHS() throws Exception {
@@ -184,9 +192,6 @@ public class HandshakeDH implements Handshake {
 		System.out.println("Vou receber 1a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
-
-		// Waits until the box sends the message
-		waitForTheSend();
 
 		// lista de ciphersuites
 		int ciphersuiteLength = ois.readInt();
