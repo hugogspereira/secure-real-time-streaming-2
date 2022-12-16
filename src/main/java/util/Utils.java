@@ -1,6 +1,7 @@
 package util;
 
 import java.net.SocketAddress;
+import java.util.Properties;
 
 public class Utils {
 
@@ -9,6 +10,7 @@ public class Utils {
 	public static final String PATH_TO_SERVER_CONFIG = "src/main/java/hjStreamServer/stream-cryptoconfig.txt"; //does not need to be encrypted 
 	public static final String CIPHERSUITE_CONFIG_FILE = "src/main/java/crypto/ciphersuites.properties"; //does not need to be encrypted
 	public static final String HS_CONFIG_FILE = "src/main/java/crypto/handshake.properties"; //does not need to be encrypted
+	public static final String HS_DH_CONFIG_FILE = "src/main/java/crypto/diffieHellmanParameters.properties"; //does not need to be encrypted
 	public static final String PRESHARED_CONFIG_FILE = "src/main/java/crypto/preSharedHMAC.properties.encrypted";
 	public static final String SERVER_CONFIG_FILE = "src/main/java/hjStreamServer/config.properties.encrypted";
 
@@ -52,6 +54,14 @@ public class Utils {
 
 	public static int transformFromBitsToBytes(int val) {
 		return (val/Byte.SIZE);
+	}
+
+	public static String checkProperty(Properties properties, String property) {
+		String res = properties.getProperty(property);
+		if (res.equalsIgnoreCase("NULL")) {
+			res = null;
+		}
+		return res;
 	}
 
 }

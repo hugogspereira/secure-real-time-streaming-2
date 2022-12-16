@@ -157,17 +157,24 @@ public class HandshakeDH implements Handshake {
 		// DH Parameters Generation
 		String[] dhs = diffieHellman.split(DELIMITER_CONFIG);
 		String dh = dhs[0];
-		String dhKeys = dhs[1];
+		String dhKeySize = dhs[1];
 
-		DHParameterSpec dhParams = generateDHParameters(dhKeys);
+		// TODO !!!
+
+		Properties properties = new Properties();
+		properties.load(new FileInputStream(HS_DH_CONFIG_FILE));
+		String pString = checkProperty(properties, "P_"+dhKeySize);
+		String gString = checkProperty(properties, "G_"+dhKeySize);
+		// P
+		BigInteger p = new BigInteger(pString, 16); // TODO
+		// G
+		BigInteger g = new BigInteger(gString, 16); // TODO
+
+		DHParameterSpec dhParams = new DHParameterSpec(p,g);
 		keysDH = generateDHKeys(dh, dhParams);
 
 		// PublicNum Box
 		PublicKey publicKeyDH = keysDH.getPublic();
-		// P
-		BigInteger p = dhParams.getP();
-		// G
-		BigInteger g = dhParams.getG();
 
 		// Write the Dh Parameters
 		writeDHParametersBox(oos, publicKeyDH, p, g);
