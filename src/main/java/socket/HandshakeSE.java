@@ -593,6 +593,7 @@ public class HandshakeSE implements Handshake {
 
 	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
 		int keyLenght = transformFromBitsToBytes(Integer.parseInt(cipherMode[1]));
+		System.out.println(keyLenght);
 		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, keyLenght);
 
 		// iv is obtained from the hash of the secret
@@ -611,9 +612,7 @@ public class HandshakeSE implements Handshake {
 		String modeCipher = algorithm[1];
 
 		AlgorithmParameterSpec ivSpec = null;
-		System.out.println(mode1);
-		System.out.println(cipherMode[0]);
-		SecretKeySpec secretKeySpec = new SecretKeySpec(ivHashed, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
+		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
 
 		switch(modeCipher){
 			case CCM_MODE:
