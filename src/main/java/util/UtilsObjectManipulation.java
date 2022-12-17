@@ -69,7 +69,7 @@ public class UtilsObjectManipulation {
 		return bos.toByteArray();
 	}
 
-	public static byte[] getBytesOfThirdMessageSE(int ciphersuitesLength, String[] boxCiphersuites, int randomLength, byte[] receivedRandom, int signatureLength, byte[] signedBytes) throws Exception {
+	public static byte[] getBytesOfThirdMessageSE(int ciphersuitesLength, String[] boxCiphersuites, int keyBlockLen, byte[] keyBlock, int cipheredRandomLen, byte[] cipheredRandom ,int signatureLength, byte[] signedBytes) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -80,9 +80,13 @@ public class UtilsObjectManipulation {
 			oos.writeUTF(cipherString);
 			oos.flush();
 		}
-		oos.writeInt(randomLength);
+		oos.writeInt(keyBlockLen);
 		oos.flush();
-		oos.write(receivedRandom);
+		oos.write(keyBlock);
+		oos.flush();
+		oos.writeInt(cipheredRandomLen);
+		oos.flush();
+		oos.write(cipheredRandom);
 		oos.flush();
 		oos.writeInt(signatureLength);
 		oos.flush();
@@ -92,15 +96,19 @@ public class UtilsObjectManipulation {
 		return bos.toByteArray();
 	}
 
-	public static byte[] getBytesOfForthMessageSE(String ciphersuite, int randomLength, byte[] receivedRandom, int signatureLength, byte[] signedBytes) throws Exception {
+	public static byte[] getBytesOfForthMessageSE(String ciphersuite, int keyBlockLen, byte[] keyBlock, int cipheredRandomLen, byte[] cipheredRandom , int signatureLength, byte[] signedBytes) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
 		oos.writeUTF(ciphersuite);
 		oos.flush();
-		oos.writeInt(randomLength);
+		oos.writeInt(keyBlockLen);
 		oos.flush();
-		oos.write(receivedRandom);
+		oos.write(keyBlock);
+		oos.flush();
+		oos.writeInt(cipheredRandomLen);
+		oos.flush();
+		oos.write(cipheredRandom);
 		oos.flush();
 		oos.writeInt(signatureLength);
 		oos.flush();
