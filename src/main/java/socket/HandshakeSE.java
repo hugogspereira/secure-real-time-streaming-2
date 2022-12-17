@@ -152,46 +152,46 @@ public class HandshakeSE implements Handshake {
 	}
 
 	private void sendFirstMessageHS() throws Exception {
-		System.out.println("Vou enviar 1a msg");
+		//System.out.println("Vou enviar 1a msg");
 
 		sendCertificate();
 
-		System.out.println("Enviei 1a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 1a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void receiveFirstMessageHS() throws Exception {
-		System.out.println("Vou receber 1a msg");
+		//System.out.println("Vou receber 1a msg");
 
 		receiveCertificate();
 
-		System.out.println("Recebi 1a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 1a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void sendSecondMessageHS() throws Exception {
-		System.out.println("Vou enviar 2a msg");
+		//System.out.println("Vou enviar 2a msg");
 
 		sendCertificate();
 
-		System.out.println("Enviei 2a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 2a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void receiveSecondMessageHS() throws Exception {
-		System.out.println("Vou receber 2a msg");
+		//System.out.println("Vou receber 2a msg");
 
 		// Waits until the box sends the message
 		waitForTheSend();
 
 		receiveCertificate();
 
-		System.out.println("Recebi 2a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 2a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void sendThirdMessageHS() throws Exception {
-		System.out.println("Vou enviar 3a msg");
+		//System.out.println("Vou enviar 3a msg");
 
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -213,12 +213,12 @@ public class HandshakeSE implements Handshake {
 
 		out.write(bos.toByteArray());
 
-		System.out.println("Enviei 3a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 3a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void receiveThirdMessageHS() throws Exception {
-		System.out.println("Recebi 3a msg");
+		//System.out.println("Recebi 3a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -272,19 +272,16 @@ public class HandshakeSE implements Handshake {
 		String[] cipherMode = ciphersuiteRTSP.split(DELIMITER_CONFIG);
 		// Generate the secret - from where it will be extracted the symmetric key and the HMAC key
 		symmetricAndHmacKey = generateSecretSE(receivedRandom);
-		for (byte b:symmetricAndHmacKey) {
-			System.out.println(b);
-		}
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 
-		System.out.println("Recebi 3a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 3a msg");
+		//System.out.println("---------------------");
 	}
 
 
 	private void sendForthMessageHS() throws Exception {
-		System.out.println("Vou enviar 4a msg");
+		//System.out.println("Vou enviar 4a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -305,12 +302,12 @@ public class HandshakeSE implements Handshake {
 
 		out.write(bos.toByteArray());
 
-		System.out.println("Enviei 4a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 4a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void receiveForthMessageHS() throws Exception {
-		System.out.println("Vou receber 4a msg");
+		//System.out.println("Vou receber 4a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -358,19 +355,16 @@ public class HandshakeSE implements Handshake {
 		String[] cipherMode = ciphersuiteRTSP.split(DELIMITER_CONFIG);
 		// Generate the secret - from where it will be extracted the symmetric key and the HMAC key
 		symmetricAndHmacKey = generateSecretSE(receivedRandom);
-		for (byte b:symmetricAndHmacKey) {
-			System.out.println(b);
-		}
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
-		System.out.println("Recebi 4a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 4a msg");
+		//System.out.println("---------------------");
 	}
 
 	
 
 	private void sendFifthMessageHS(String movieName) throws Exception {
-		System.out.println("Vou enviar 5a msg");
+		//System.out.println("Vou enviar 5a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -389,12 +383,12 @@ public class HandshakeSE implements Handshake {
 		writeHMac(oos, messageTotal);
 
 		out.write(bos.toByteArray());
-		System.out.println("Enviei 5a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 5a msg");
+		//System.out.println("---------------------");
 	}
 
 	private String receiveFifthMessageHS()  throws Exception {
-		System.out.println("Vou receber 5a msg");
+		//System.out.println("Vou receber 5a msg");
 		DataInputStream is = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(is);
 
@@ -421,8 +415,8 @@ public class HandshakeSE implements Handshake {
 			throw new Exception("Message content have been changed!");
 		}
 
-		System.out.println("Recebi 5a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 5a msg");
+		//System.out.println("---------------------");
 		return new String(movieNameData);
 	}
 
@@ -605,7 +599,6 @@ public class HandshakeSE implements Handshake {
 
 	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
 		int keyLenght = transformFromBitsToBytes(Integer.parseInt(cipherMode[1]));
-		System.out.println(keyLenght);
 		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, keyLenght);
 
 		// iv is obtained from the hash of the secret
@@ -631,7 +624,6 @@ public class HandshakeSE implements Handshake {
 		}
 
 		ciphersuite.init(mode1, secretKeySpec, ivSpec);
-		System.out.println(ciphersuite.getAlgorithm());
 
 		byte[] movieNameFinalData;
 		if(Cipher.DECRYPT_MODE == mode1) {
@@ -679,7 +671,7 @@ public class HandshakeSE implements Handshake {
 		while(in.available() == 0) {
 			// Meter thread sleep para n gastar cpu ?
 		}
-		System.out.println("*** recebi pacote - vou avançar ***");
+		//System.out.println("*** recebi pacote - vou avançar ***");
 	}
 
 	// -----------------------------------------------------------------------------------

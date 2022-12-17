@@ -14,25 +14,25 @@ import java.nio.charset.StandardCharsets;
 public class hjStreamServer {
 
 	static public void main( String []args ) throws Exception {
-		if (args.length != 5) {
+		if (args.length != 6) {
 			   /*
 				0	src/main/java/hjStreamServer/movies/cars.dat.encrypted
 				1	src/main/java/hjStreamServer/movies-cryptoconfig.txt.encrypted
 				2	236.16.20.30
 				3	9999
 				4	omsqptaesdfommptvsnfiocmlesrfoqppms
+				5   password
 				*/
-				System.out.println("Erro, usar: mySend <movie> <movies-config> <ip-multicast-address> <port> <box-config> <password>");
-	           	System.out.println("        or: mySend <movie> <movies-config> <ip-unicast-address> <port> <box-config> <password>");
+				System.out.println("Erro, usar: mySend <movie> <movies-config> <ip-multicast-address> <port> <password-movie> <password-cert>");
+	           	System.out.println("        or: mySend <movie> <movies-config> <ip-unicast-address> <port> <password-movie> <password-cert>");
 	           	System.exit(-1);
 		}
 
-		// TODO - ver como tinhamos antes, apaguei coisas a mais
 		int size, count = 0;
 		byte[] buff = new byte[4 * 1024];
 
 		SocketAddress addr = new InetSocketAddress(args[2], Integer.parseInt(args[3])); 		// <ip-multicast-address> <port>
-		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), "password", addr, args[4]);
+		SafeDatagramSocket s = new SafeDatagramSocket(hjStreamServer.class.getSimpleName(), args[5], addr, args[4]);
 		DataInputStream g = s.decryptMovie(args[1], args[4]);     // <movies-config> <password>
 
 		DatagramPacket p = new DatagramPacket(buff, buff.length, addr);
@@ -54,7 +54,7 @@ public class hjStreamServer {
 
 			// send packet (with a frame payload)
 			s.send(p);
-			System.out.println("+");
+			//System.out.println("+");
 		}
 		s.printServerConfigStatus(count, afs, (double)(System.nanoTime()-t0)/1000000000,addr);
 	}

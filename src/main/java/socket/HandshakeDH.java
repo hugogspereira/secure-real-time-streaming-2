@@ -143,7 +143,7 @@ public class HandshakeDH implements Handshake {
 	}
 
 	private void sendFirstMessageHS() throws Exception {
-		System.out.println("Vou enviar 1a msg");
+		//System.out.println("Vou enviar 1a msg");
 
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -163,8 +163,6 @@ public class HandshakeDH implements Handshake {
 		properties.load(new FileInputStream(HS_DH_CONFIG_FILE));
 
 		boolean dynamicGenerationOfDHParameters = Boolean.parseBoolean(checkProperty(properties, DYNAMIC_DH_PARAMETERS));
-		System.out.println(dynamicGenerationOfDHParameters);
-
 		DHParameterSpec dhParams;
 		BigInteger p, g;
 
@@ -203,12 +201,12 @@ public class HandshakeDH implements Handshake {
 		byte[] data = bos.toByteArray();
 		out.write(data);
 
-		System.out.println("Enviei 1a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 1a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void receiveFirstMessageHS() throws Exception {
-		System.out.println("Vou receber 1a msg");
+		//System.out.println("Vou receber 1a msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -271,13 +269,13 @@ public class HandshakeDH implements Handshake {
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
 
-		System.out.println("Recebi 1a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 1a msg");
+		//System.out.println("---------------------");
 	}
 
 
 	private void sendSecondMessageHS() throws Exception {
-		System.out.println("Vou enviar 2a msg");
+		//System.out.println("Vou enviar 2a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -305,12 +303,12 @@ public class HandshakeDH implements Handshake {
 		byte[] data = bos.toByteArray();
 		out.write(data);
 
-		System.out.println("Enviei 2a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 2a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void receiveSecondMessageHS() throws Exception {
-		System.out.println("Vou receber 2 msg");
+		//System.out.println("Vou receber 2 msg");
 		DataInputStream inputStream = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(inputStream);
 
@@ -364,12 +362,12 @@ public class HandshakeDH implements Handshake {
 		symmetricAndHmacKey = generateSecretDH(serverPubKey);
 		// Parte que vai para a chave HMAC
 		generateHMacKey(symmetricAndHmacKey, cipherMode);
-		System.out.println("Recebi 2a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 2a msg");
+		//System.out.println("---------------------");
 	}
 
 	private void sendThirdMessageHS(String movieName) throws Exception {
-		System.out.println("Vou enviar 3a msg");
+		//System.out.println("Vou enviar 3a msg");
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
@@ -387,12 +385,12 @@ public class HandshakeDH implements Handshake {
 		writeHMac(oos, movieNameData);
 
 		out.write(bos.toByteArray());
-		System.out.println("Enviei 3a msg");
-		System.out.println("---------------------");
+		//System.out.println("Enviei 3a msg");
+		//System.out.println("---------------------");
 	}
 
 	private String receiveThirdMessageHS()  throws Exception {
-		System.out.println("Vou receber 3a msg");
+		//System.out.println("Vou receber 3a msg");
 		DataInputStream is = new DataInputStream(in);
 		ObjectInputStream ois = new ObjectInputStream(is);
 
@@ -414,8 +412,8 @@ public class HandshakeDH implements Handshake {
 			throw new Exception("Message content have been changed!");
 		}
 
-		System.out.println("Recebi 3a msg");
-		System.out.println("---------------------");
+		//System.out.println("Recebi 3a msg");
+		//System.out.println("---------------------");
 		return new String(movieNameData);
 	}
 
@@ -541,7 +539,6 @@ public class HandshakeDH implements Handshake {
 		}
 
 		ciphersuite.init(mode1, secretKeySpec, ivSpec);
-		System.out.println(ciphersuite.getAlgorithm());
 
 		byte[] movieNameFinalData;
 		if(Cipher.DECRYPT_MODE == mode1) {
@@ -589,7 +586,7 @@ public class HandshakeDH implements Handshake {
 		while(in.available() == 0) {
 			// Meter thread sleep para n gastar cpu ?
 		}
-		System.out.println("*** recebi pacote - vou avançar ***");
+		//System.out.println("*** recebi pacote - vou avançar ***");
 	}
 
 	// -----------------------------------------------------------------------------------
