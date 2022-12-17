@@ -4,6 +4,8 @@ import crypto.PBEFileDecryption;
 import util.ConfigReader;
 import util.CryptoStuff;
 import util.PrintStats;
+import util.Utils;
+
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
@@ -26,6 +28,8 @@ import static util.Utils.*;
 import static util.UtilsCertificateManipulation.*;
 import static util.UtilsObjectManipulation.*;
 import static util.UtilsSEManipulation.*;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public class HandshakeSE implements Handshake {
 
@@ -50,6 +54,8 @@ public class HandshakeSE implements Handshake {
 
 
 	public HandshakeSE(Socket socket, String digitalSignature, String className, String certPassword, SocketAddress addr, SocketAddress addrToSend, String configPass) throws Exception {
+		Security.addProvider(new BouncyCastleProvider());
+
 		this.digitalSignature = digitalSignature;
 		this.fromClassName = className;
 		this.certPassword = certPassword;
@@ -229,8 +235,10 @@ public class HandshakeSE implements Handshake {
 		ciphersuitesProperties.load(new FileInputStream(CIPHERSUITE_CONFIG_FILE));
 		ciphersuiteRTSP = ciphersuitesProperties.getProperty(chooseCommonCipher(boxCiphersuites, ConfigReader.readCiphersuites(PATH_TO_SERVER_CONFIG, addrToSend.toString().split(DELIMITER_ADDRESS)[1])));
 
-		int randomLength = ois.readInt();
-		byte[] receivedRandom = ois.readNBytes(randomLength);
+		byte[][] envolope = readRandomSEParameter(ois);
+		byte[] receivedRandom = envolope[0];
+		byte[] keyBlock = envolope[1];
+		byte[] cipheredRandom = envolope[2];
 
 		//Signature
 		int signatureLength = ois.readInt();
@@ -243,7 +251,7 @@ public class HandshakeSE implements Handshake {
 		}
 
 		// Generate the bytes
-		byte[] messageTotal = getBytesOfThirdMessageSE(ciphersuiteLength,boxCiphersuites,randomLength,receivedRandom,signatureLength,signedBytes);
+		byte[] messageTotal = getBytesOfThirdMessageSE(ciphersuiteLength,boxCiphersuites,keyBlock.length,keyBlock, cipheredRandom.length, cipheredRandom,signatureLength,signedBytes);
 
 		// HMAC
 		int hmacLength = ois.readInt();
@@ -311,8 +319,11 @@ public class HandshakeSE implements Handshake {
 		// Ciphersuite escolhida
 		ciphersuiteRTSP = ois.readUTF();
 
-		int randomLength = ois.readInt();
-		byte[] receivedRandom = ois.readNBytes(randomLength);
+		byte[][] envolope = readRandomSEParameter(ois);
+		byte[] receivedRandom = envolope[0];
+		byte[] keyBlock = envolope[1];
+		byte[] cipheredRandom = envolope[2];
+
 
 		// Signature
 		int signatureLength = ois.readInt();
@@ -326,7 +337,7 @@ public class HandshakeSE implements Handshake {
 		}
 
 		// Generate the bytes
-		byte[] messageTotal = getBytesOfForthMessageSE(ciphersuiteRTSP,randomLength,receivedRandom,signatureLength,signedBytes);
+		byte[] messageTotal = getBytesOfForthMessageSE(ciphersuiteRTSP,keyBlock.length,keyBlock, cipheredRandom.length, cipheredRandom, signatureLength,signedBytes);
 
 		// HMAC
 		int hmacLength = ois.readInt();
@@ -355,6 +366,8 @@ public class HandshakeSE implements Handshake {
 		System.out.println("Recebi 4a msg");
 		System.out.println("---------------------");
 	}
+
+	
 
 	private void sendFifthMessageHS(String movieName) throws Exception {
 		System.out.println("Vou enviar 5a msg");
@@ -496,10 +509,50 @@ public class HandshakeSE implements Handshake {
 	}
 
 	private void writeRandomSEParameter(ObjectOutputStream oos) throws Exception {
-		oos.writeInt(random.length);
+		byte r[]=new byte[16];
+		SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextBytes(r);
+        IvParameterSpec sIvSpec = new IvParameterSpec(r);
+		Key sKey = Utils.createKeyForAES(256, secureRandom);
+		
+		Cipher xCipher = Cipher.getInstance(getAlgorithmFromConfigString(digitalSignature),"BC");
+        xCipher.init(Cipher.ENCRYPT_MODE, otherPartPublicKey, secureRandom);
+        byte[] keyBlock = xCipher.doFinal(Utils.packKeyAndIv(sKey, sIvSpec));
+
+		Cipher sCipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
+		sCipher.init(Cipher.ENCRYPT_MODE, sKey, sIvSpec);
+
+        byte[] cipheredRandom = sCipher.doFinal(random);
+
+		oos.writeInt(keyBlock.length);
 		oos.flush();
-		oos.write(random);
+		oos.write(keyBlock);
 		oos.flush();
+
+		oos.writeInt(cipheredRandom.length);
+		oos.flush();
+		oos.write(cipheredRandom);
+		oos.flush();
+	}
+	
+	private byte[][] readRandomSEParameter(ObjectInputStream ois) throws Exception {
+		
+		int keyBlockLen = ois.readInt();
+		byte[] keyBlock = ois.readNBytes(keyBlockLen);
+		int cipheredRandomLen = ois.readInt();
+		byte[] cipheredRandom = ois.readNBytes(cipheredRandomLen);
+
+
+		Cipher xCipher = Cipher.getInstance(getAlgorithmFromConfigString(digitalSignature),"BC");
+		xCipher.init(Cipher.DECRYPT_MODE, retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE, certPassword, fromClassName));
+        Object[] keyIv = Utils.unpackKeyAndIV(xCipher.doFinal(keyBlock));
+
+		Cipher sCipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
+		sCipher.init(Cipher.DECRYPT_MODE, (Key)keyIv[0], (IvParameterSpec)keyIv[1]);
+
+        byte[] random = sCipher.doFinal(cipheredRandom);
+
+		return new byte[][]{random, keyBlock, cipheredRandom};
 	}
 
 	private void writeHMacHS(ObjectOutputStream oos, byte[] message) throws Exception {
@@ -548,6 +601,7 @@ public class HandshakeSE implements Handshake {
 
 	private byte[] generateCiphersuiteExtractMovieName(byte[] symmetricAndHmacKey, String[] cipherMode, int mode1, int mode2, byte[] movieNameData) throws Exception {
 		int keyLenght = transformFromBitsToBytes(Integer.parseInt(cipherMode[1]));
+		System.out.println(keyLenght);
 		byte[] symmetricKey = Arrays.copyOfRange(symmetricAndHmacKey,0, keyLenght);
 
 		// iv is obtained from the hash of the secret
@@ -561,7 +615,7 @@ public class HandshakeSE implements Handshake {
 		String modeCipher = algorithm[1];
 
 		AlgorithmParameterSpec ivSpec = null;
-		SecretKeySpec secretKeySpec = new SecretKeySpec(ivHashed, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
+		SecretKeySpec secretKeySpec = new SecretKeySpec(symmetricKey, cipherMode[0].split(DELIMITER_ADDRESS)[0]); // AES
 
 		switch(modeCipher){
 			case CCM_MODE:
