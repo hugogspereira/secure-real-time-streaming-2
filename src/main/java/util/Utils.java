@@ -1,9 +1,16 @@
 package util;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.SocketAddress;
-
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
 import java.util.Properties;
 
 public class Utils {
@@ -21,6 +28,8 @@ public class Utils {
 	public static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
 	public static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
 	public static final String DYNAMIC_DH_PARAMETERS = "DYNAMIC_DH_PARAMETERS";
+	public static final String SECURE_ENVELOPE = "SECURE_ENVELOPE";
+	public static final String SYMMETRIC_CIPHER_ENVELOPE = "SYMMETRIC_CIPHER_ENVELOPE";
 	public static final String HJSTREAMSERVER = "hjStreamServer";
 
 	public static final String DELIMITER_ADDRESS = "/";
@@ -33,6 +42,7 @@ public class Utils {
 
 	public static final String HMAC_ALGORITHM = "HmacSHA256";
 	public static final String SHA_ALGORITHM = "SHA-512";
+	public static final String AES = "AES";
 
 	public static String removeSlashFromAddress(SocketAddress addr) {
 		return removeSlashFromString(addr.toString());
@@ -68,7 +78,7 @@ public class Utils {
 
 	public static SecretKey createKeyForAES(int bitLength, SecureRandom random)
 			throws NoSuchAlgorithmException, NoSuchProviderException {
-		KeyGenerator generator = KeyGenerator.getInstance("AES", "BC");
+		KeyGenerator generator = KeyGenerator.getInstance(AES, "BC");
 
 		generator.init(256, random);
 
@@ -86,7 +96,7 @@ public class Utils {
 
 	public static Object[] unpackKeyAndIV(byte[] data) {	
 		return new Object[] {
-				new SecretKeySpec(data, 16, data.length - 16, "AES"),
+				new SecretKeySpec(data, 16, data.length - 16, AES),
 				new IvParameterSpec(data, 0, 16)
 		};
 	}

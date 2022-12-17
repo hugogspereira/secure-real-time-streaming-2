@@ -509,17 +509,20 @@ public class HandshakeSE implements Handshake {
 	}
 
 	private void writeRandomSEParameter(ObjectOutputStream oos) throws Exception {
-		byte r[]=new byte[16];
+		byte randomBytes[]=new byte[16];
 		SecureRandom secureRandom = new SecureRandom();
-        secureRandom.nextBytes(r);
-        IvParameterSpec sIvSpec = new IvParameterSpec(r);
+        secureRandom.nextBytes(randomBytes);
+        IvParameterSpec sIvSpec = new IvParameterSpec(randomBytes);
 		Key sKey = Utils.createKeyForAES(256, secureRandom);
+
+		Properties properties = new Properties();
+		properties.load(new FileInputStream(HS_CONFIG_FILE));
 		
-		Cipher xCipher = Cipher.getInstance(getAlgorithmFromConfigString(digitalSignature),"BC");
+		Cipher xCipher = Cipher.getInstance(checkProperty(properties,SECURE_ENVELOPE),"BC");
         xCipher.init(Cipher.ENCRYPT_MODE, otherPartPublicKey, secureRandom);
         byte[] keyBlock = xCipher.doFinal(Utils.packKeyAndIv(sKey, sIvSpec));
 
-		Cipher sCipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
+		Cipher sCipher = Cipher.getInstance(checkProperty(properties,SYMMETRIC_CIPHER_ENVELOPE), "BC");
 		sCipher.init(Cipher.ENCRYPT_MODE, sKey, sIvSpec);
 
         byte[] cipheredRandom = sCipher.doFinal(random);
@@ -536,18 +539,19 @@ public class HandshakeSE implements Handshake {
 	}
 	
 	private byte[][] readRandomSEParameter(ObjectInputStream ois) throws Exception {
-		
 		int keyBlockLen = ois.readInt();
 		byte[] keyBlock = ois.readNBytes(keyBlockLen);
 		int cipheredRandomLen = ois.readInt();
 		byte[] cipheredRandom = ois.readNBytes(cipheredRandomLen);
 
+		Properties properties = new Properties();
+		properties.load(new FileInputStream(HS_CONFIG_FILE));
 
-		Cipher xCipher = Cipher.getInstance(getAlgorithmFromConfigString(digitalSignature),"BC");
+		Cipher xCipher = Cipher.getInstance(checkProperty(properties,SECURE_ENVELOPE),"BC");
 		xCipher.init(Cipher.DECRYPT_MODE, retrievePrivateKeyFromKeystore(PATH_TO_KEYSTORE, certPassword, fromClassName));
         Object[] keyIv = Utils.unpackKeyAndIV(xCipher.doFinal(keyBlock));
 
-		Cipher sCipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
+		Cipher sCipher = Cipher.getInstance(checkProperty(properties,SYMMETRIC_CIPHER_ENVELOPE), "BC");
 		sCipher.init(Cipher.DECRYPT_MODE, (Key)keyIv[0], (IvParameterSpec)keyIv[1]);
 
         byte[] random = sCipher.doFinal(cipheredRandom);
