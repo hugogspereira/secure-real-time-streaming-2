@@ -20,7 +20,7 @@ public class Utils {
 
 	public static final String DIGITAL_SIGNATURE = "DIGITAL_SIGNATURE";
 	public static final String DIFFIE_HELLMAN = "DIFFIE_HELLMAN";
-	public static final String SECURE_ENVELOPE = "SECURE_ENVELOPE";
+	public static final String DYNAMIC_DH_PARAMETERS = "DYNAMIC_DH_PARAMETERS";
 	public static final String HJSTREAMSERVER = "hjStreamServer";
 
 	public static final String DELIMITER_ADDRESS = "/";
@@ -29,7 +29,6 @@ public class Utils {
 	public static final String DELIMITER_PORT_CONFIG = "-";
 
 	public static final String CCM_MODE = "CCM";
-	public static final String GCM_MODE = "GCM";
 	public static final String CTR_MODE = "CTR";
 
 	public static final String HMAC_ALGORITHM = "HmacSHA256";

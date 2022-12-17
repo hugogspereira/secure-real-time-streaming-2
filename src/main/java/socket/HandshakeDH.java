@@ -159,18 +159,30 @@ public class HandshakeDH implements Handshake {
 		String dh = dhs[0];
 		String dhKeySize = dhs[1];
 
-		// TODO !!!
-
 		Properties properties = new Properties();
 		properties.load(new FileInputStream(HS_DH_CONFIG_FILE));
-		String pString = checkProperty(properties, "P_"+dhKeySize);
-		String gString = checkProperty(properties, "G_"+dhKeySize);
-		// P
-		BigInteger p = new BigInteger(pString, 16); // TODO
-		// G
-		BigInteger g = new BigInteger(gString, 16); // TODO
 
-		DHParameterSpec dhParams = new DHParameterSpec(p,g);
+		boolean dynamicGenerationOfDHParameters = Boolean.parseBoolean(checkProperty(properties, DYNAMIC_DH_PARAMETERS));
+		System.out.println(dynamicGenerationOfDHParameters);
+
+		DHParameterSpec dhParams;
+		BigInteger p, g;
+
+		if(dynamicGenerationOfDHParameters) {
+			dhParams = generateDHParameters(dh, dhKeySize);
+
+			p = dhParams.getP();
+			g = dhParams.getG();
+		}
+		else {
+			String pString = checkProperty(properties, "P_"+dhKeySize);
+			String gString = checkProperty(properties, "G_"+dhKeySize);
+
+			p = new BigInteger(pString, RADIX_INTEGER);
+			g = new BigInteger(gString, RADIX_INTEGER);
+
+			dhParams = new DHParameterSpec(p,g);
+		}
 		keysDH = generateDHKeys(dh, dhParams);
 
 		// PublicNum Box
@@ -514,11 +526,6 @@ public class HandshakeDH implements Handshake {
 		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
 		ciphersuite = Cipher.getInstance(transformation);
 		String[] algorithm = transformation.split(DELIMITER_ADDRESS);
-
-		if(algorithm[0].equals("CHACHA20")){
-			//TODO nao vai dar pela mesma razão do GCM o iv tem de mudar com cada encriptaçao
-		}
-
 		String modeCipher = algorithm[1];
 
 		AlgorithmParameterSpec ivSpec = null;
@@ -527,10 +534,6 @@ public class HandshakeDH implements Handshake {
 		switch(modeCipher){
 			case CCM_MODE:
 				ivSpec = new IvParameterSpec(Arrays.copyOfRange(ivHashed,0,7));
-				break;
-			case GCM_MODE: // GCM não dá porque iv tem de ser diferente em cada encriptação perguntar ao prof?
-				byte[] iv = Arrays.copyOfRange(ivHashed,0,12);
-				ivSpec = new GCMParameterSpec(keyLenght * 8, iv);
 				break;
 			case CTR_MODE:
 				ivSpec = new IvParameterSpec(Arrays.copyOfRange(ivHashed,0,16));
