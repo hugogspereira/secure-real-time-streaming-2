@@ -75,14 +75,6 @@ public class SafeDatagramSocket {
         }
     }
 
-    private String checkProperty(Properties properties, String property) {
-        String res = properties.getProperty(property);
-        if (res.equalsIgnoreCase("NULL")) {
-            res = null;
-        }
-        return res;
-    }
-
     public DatagramPacket encrypt(DatagramPacket p) throws IOException { // Encrypt
         byte[] data = p.getData();
 

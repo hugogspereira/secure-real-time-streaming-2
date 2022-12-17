@@ -10,8 +10,8 @@ public class UtilsDHManipulation {
 	// Auxiliary methods to get DH Parameters and Keypairs
 	// ---------------------------------------------------
 
-	public static DHParameterSpec generateDHParameters(String keySize) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidParameterSpecException {
-		AlgorithmParameterGenerator paramsGenerator = AlgorithmParameterGenerator.getInstance("DH", "BC");
+	public static DHParameterSpec generateDHParameters(String diffieHellman, String keySize) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidParameterSpecException {
+		AlgorithmParameterGenerator paramsGenerator = AlgorithmParameterGenerator.getInstance(diffieHellman, "BC");
 		paramsGenerator.init(Integer.parseInt(keySize));
 		AlgorithmParameters params = paramsGenerator.generateParameters();
 		return (DHParameterSpec) params.getParameterSpec(DHParameterSpec.class);
