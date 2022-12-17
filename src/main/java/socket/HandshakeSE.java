@@ -558,11 +558,6 @@ public class HandshakeSE implements Handshake {
 		String transformation = cipherMode[0];  // Ex: AES/CCM/NoPadding
 		ciphersuite = Cipher.getInstance(transformation);
 		String[] algorithm = transformation.split(DELIMITER_ADDRESS);
-
-		if(algorithm[0].equals("CHACHA20")){
-			// nao vai dar pela mesma razão do GCM o iv tem de mudar com cada encriptaçao - TODO
-		}
-
 		String modeCipher = algorithm[1];
 
 		AlgorithmParameterSpec ivSpec = null;
@@ -571,10 +566,6 @@ public class HandshakeSE implements Handshake {
 		switch(modeCipher){
 			case CCM_MODE:
 				ivSpec = new IvParameterSpec(Arrays.copyOfRange(ivHashed,0,7));
-				break;
-			case GCM_MODE: // GCM não dá porque iv tem de ser diferente em cada encriptação - TODO
-				byte[] iv = Arrays.copyOfRange(ivHashed,0,12);
-				ivSpec = new GCMParameterSpec(keyLenght * 8, iv);
 				break;
 			case CTR_MODE:
 				ivSpec = new IvParameterSpec(Arrays.copyOfRange(ivHashed,0,16));
