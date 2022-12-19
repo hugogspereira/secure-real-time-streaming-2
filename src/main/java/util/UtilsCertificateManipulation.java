@@ -26,8 +26,8 @@ public class UtilsCertificateManipulation {
 		throw new Exception("unable to retrieve certificate from keystore!");
 	}
 
-	public static Certificate retrieveCACertificate(String keystoreName, String password, String aliasEntry)throws Exception {
-		FileInputStream is = new FileInputStream(keystoreName+aliasEntry+".keystore");
+	public static Certificate retrieveCACertificate(String trustStoreName, String password, String aliasEntry)throws Exception {
+		FileInputStream is = new FileInputStream(trustStoreName+aliasEntry+".truststore");
 
 		KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 		keystore.load(is, password.toCharArray());
