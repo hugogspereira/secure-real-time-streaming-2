@@ -42,12 +42,20 @@ public class UtilsObjectManipulation {
 		return bos.toByteArray();
 	}
 
-	public static byte[] getBytesOfFirstMessageSE(X509Certificate cert) throws Exception {
+	public static byte[] getBytesOfFirstMessageSE(X509Certificate cert, int ciphersuitesLength, String[] boxCiphersuites) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
 		oos.writeObject(cert);
 		oos.flush();
+
+		oos.writeInt(ciphersuitesLength);
+		oos.flush();
+		// Array of ciphersuites
+		for (String cipherString: boxCiphersuites) {
+			oos.writeUTF(cipherString);
+			oos.flush();
+		}
 
 		return bos.toByteArray();
 	}
@@ -69,22 +77,17 @@ public class UtilsObjectManipulation {
 		return bos.toByteArray();
 	}
 
-	public static byte[] getBytesOfThirdMessageSE(int ciphersuitesLength, String[] boxCiphersuites, int keyBlockLen, byte[] keyBlock, int cipheredRandomLen, byte[] cipheredRandom ,int signatureLength, byte[] signedBytes) throws Exception {
+	public static byte[] getBytesOfSecondMessageSE(X509Certificate cert, String ciphersuiteRTSP, int cipherLen, byte[] cipheredRandom, int signatureLength, byte[] signedBytes) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
-		oos.writeInt(ciphersuitesLength);
+		oos.writeObject(cert);
 		oos.flush();
-		// Array of ciphersuites
-		for (String cipherString: boxCiphersuites) {
-			oos.writeUTF(cipherString);
-			oos.flush();
-		}
-		oos.writeInt(keyBlockLen);
+
+		oos.writeUTF(ciphersuiteRTSP);
 		oos.flush();
-		oos.write(keyBlock);
-		oos.flush();
-		oos.writeInt(cipheredRandomLen);
+
+		oos.writeInt(cipherLen);
 		oos.flush();
 		oos.write(cipheredRandom);
 		oos.flush();
@@ -96,16 +99,10 @@ public class UtilsObjectManipulation {
 		return bos.toByteArray();
 	}
 
-	public static byte[] getBytesOfForthMessageSE(String ciphersuite, int keyBlockLen, byte[] keyBlock, int cipheredRandomLen, byte[] cipheredRandom , int signatureLength, byte[] signedBytes) throws Exception {
+	public static byte[] getBytesOfThirdMessageSE(int cipheredRandomLen, byte[] cipheredRandom, int signatureLength, byte[] signedBytes, int movieLength, byte[] movieNameEncrypted) throws Exception {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 
-		oos.writeUTF(ciphersuite);
-		oos.flush();
-		oos.writeInt(keyBlockLen);
-		oos.flush();
-		oos.write(keyBlock);
-		oos.flush();
 		oos.writeInt(cipheredRandomLen);
 		oos.flush();
 		oos.write(cipheredRandom);
@@ -114,14 +111,6 @@ public class UtilsObjectManipulation {
 		oos.flush();
 		oos.write(signedBytes);
 		oos.flush();
-
-		return bos.toByteArray();
-	}
-
-	public static byte[] getBytesOfFifthMessageSE(int movieLength, byte[] movieNameEncrypted) throws Exception {
-		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		ObjectOutputStream oos = new ObjectOutputStream(bos);
-
 		oos.writeInt(movieLength);
 		oos.flush();
 		oos.write(movieNameEncrypted);
